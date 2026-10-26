@@ -77,3 +77,8 @@ fastlane/test_output
 
 iOSInjectionProject/
 .DS_Store
+
+# Game data: never commit it (the apps read it from Documents)
+base/
+d3xp/
+*.pk4

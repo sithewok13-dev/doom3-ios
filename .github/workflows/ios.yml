@@ -1,0 +1,113 @@
+# Builds DOOM 3 and DOOM 3: Resurrection of Evil for iOS (arm64 device) and
+# packages each as an UNSIGNED .ipa (ad-hoc signature only), kept as a
+# workflow artifact. Sideload it (SideStore, Feather) or hand it to
+# ios-pipeline's testflight-ipa.yml for TestFlight.
+#
+# No game data is built in or bundled: the apps read base/ and d3xp/ from
+# their Documents folder (Files > On My iPhone). The package step fails if a
+# .pk4 ever ends up in an app.
+name: iOS
+
+on:
+  push:
+    branches: [ios]
+    paths-ignore:
+      - '**.md'
+      - '**.png'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IOS_DEPLOYMENT_TARGET: '15.0'
+
+jobs:
+  build:
+    name: ${{ matrix.app }}
+    runs-on: macos-15
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: DOOM 3
+            project: DOOM3-iOS.xcodeproj
+            scheme: DOOM3-iOS
+            ipa: DOOM3-iOS-unsigned.ipa
+          - app: DOOM 3 RoE
+            project: DOOM3xp-iOS.xcodeproj
+            scheme: DOOM3xp-iOS
+            ipa: DOOM3RoE-iOS-unsigned.ipa
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # App Store Connect wants a current SDK, so take the newest release Xcode
+      # on the runner rather than its default.
+      - name: Select newest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | grep -iv beta | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Build
+        run: |
+          set +e
+          xcodebuild build \
+            -project "${{ matrix.project }}" \
+            -scheme "${{ matrix.scheme }}" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            IPHONEOS_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" \
+            > build.log 2>&1
+          status=$?
+          set -e
+          if [ $status -ne 0 ]; then
+            # The first errors, as annotations, so they show on the run page.
+            grep -E ': (fatal )?error: ' build.log | sort -u | head -40 | while IFS= read -r line; do
+              echo "::error::${line#$GITHUB_WORKSPACE/}"
+            done
+            grep -E ': (fatal )?error: |^ld: |\*\* BUILD FAILED' -A3 build.log | head -150
+            exit $status
+          fi
+          grep -E '\*\* BUILD SUCCEEDED' build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.scheme }}
+          path: build.log
+          if-no-files-found: ignore
+
+      - name: Package .ipa
+        run: |
+          APP="build/Build/Products/Release-iphoneos/${{ matrix.scheme }}.app"
+          test -d "$APP"
+          # Game data must never be bundled.
+          if find "$APP" -iname '*.pk4' | grep -q .; then
+            echo "::error::Game data (.pk4) found in the app bundle"
+            exit 1
+          fi
+          codesign --force --sign - --timestamp=none "$APP"
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry "${{ matrix.ipa }}" Payload
+          plutil -p "Payload/${{ matrix.scheme }}.app/Info.plist" | grep -E 'CFBundleIdentifier|CFBundleDisplayName|CFBundleVersion|MinimumOSVersion'
+          lipo -info "Payload/${{ matrix.scheme }}.app/${{ matrix.scheme }}"
+          ls -l "${{ matrix.ipa }}"
+
+      - name: Upload .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.ipa }}
+          path: ${{ matrix.ipa }}
+          if-no-files-found: error
