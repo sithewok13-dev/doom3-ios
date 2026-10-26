@@ -117,7 +117,7 @@
         <!--Game View Controller-->
         <scene sceneID="7LL-Xc-QXH">
             <objects>
-                <viewController id="ZbM-Ov-oft" customClass="GameViewController" customModule="DOOM3_iOS" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="GameVC" id="ZbM-Ov-oft" customClass="GameViewController" customModule="DOOM3_iOS" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="zay-pc-Dpq">
                         <rect key="frame" x="0.0" y="0.0" width="812" height="375"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>

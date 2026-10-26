@@ -70,7 +70,8 @@ bool Sys_GetPath(sysPath_t type, idStr &path) {
 	switch(type) {
 	case PATH_BASE:
 #ifdef IOS
-		strncpy(buf, [ [ [ NSBundle mainBundle ] resourcePath ] cString ], MAXPATHLEN );
+		// The player's own game files, copied in with the Files app; never bundled.
+		strncpy(buf, [ [ NSSearchPathForDirectoriesInDomains( NSDocumentDirectory, NSUserDomainMask, YES ) objectAtIndex:0 ] fileSystemRepresentation ], MAXPATHLEN );
 #else
         strncpy(buf, [ [ [ NSBundle mainBundle ] bundlePath ] cString ], MAXPATHLEN );
 

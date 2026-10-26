@@ -41,11 +41,9 @@
     self.uiwindow = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     self.uiwindow.backgroundColor = [UIColor blackColor];
     
-    UIStoryboard *mainStoryboard = [UIStoryboard storyboardWithName:@"Main" bundle: nil];
-
-    rootNavigationController = (UINavigationController *)[mainStoryboard instantiateViewControllerWithIdentifier:@"RootNC"];
-
-    self.uiwindow.rootViewController = self.rootNavigationController;
+    // No launcher screens: check for the game files, then straight into
+    // DOOM 3's own menus (GameDataViewController starts the game).
+    self.uiwindow.rootViewController = [[[NSClassFromString(@"GameDataViewController") alloc] init] autorelease];
     
     [self.uiwindow makeKeyAndVisible];
 }

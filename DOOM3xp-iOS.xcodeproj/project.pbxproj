@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0284E90B638CA98E41A16511 /* GameDataViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31D7A92159AA98778A070189 /* GameDataViewController.swift */; };
 		A142F96922138D03006A2A17 /* SavedGameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A142F96822138D02006A2A17 /* SavedGameViewController.swift */; };
 		A142F96A22138D03006A2A17 /* SavedGameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A142F96822138D02006A2A17 /* SavedGameViewController.swift */; };
 		A15BF74B21FCF7E3005F4B74 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A15BF74A21FCF7E3005F4B74 /* Main.storyboard */; };
@@ -728,6 +729,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		31D7A92159AA98778A070189 /* GameDataViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDataViewController.swift; sourceTree = "<group>"; };
 		8D1107310486CEB800E47090 /* DOOM3xp-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "DOOM3xp-Info.plist"; sourceTree = "<group>"; };
 		A142F96822138D02006A2A17 /* SavedGameViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedGameViewController.swift; sourceTree = "<group>"; };
 		A15BF74A21FCF7E3005F4B74 /* Main.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Main.storyboard; sourceTree = "<group>"; };
@@ -1501,6 +1503,7 @@
 				A1B80A0221F438C200560711 /* DOOM3LaunchScreen.storyboard */,
 				A1C1267C220908DF00EAD9CB /* Extensions.swift */,
 				A15BF75F21FD0819005F4B74 /* GameViewController.swift */,
+				31D7A92159AA98778A070189 /* GameDataViewController.swift */,
 				A1C1205621FE821900EAD9CB /* JoyStickView.swift */,
 				A15BF74A21FCF7E3005F4B74 /* Main.storyboard */,
 				A15BF75D21FD0604005F4B74 /* MainMenuViewController.swift */,
@@ -2673,6 +2676,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0284E90B638CA98E41A16511 /* GameDataViewController.swift in Sources */,
 				A184FB1E2252A80E00E386D7 /* Clip.cpp in Sources */,
 				A1B2B3A12222018200D94577 /* Str.cpp in Sources */,
 				A1B2B3A32222018200D94577 /* Token.cpp in Sources */,
