@@ -11,6 +11,16 @@ two agree, that's the standard. Where they differ, it's flagged below for you to
 - Jedi Knight's stick and layout: walk by default, push onto the ^^ marker to run, dead zone 0.30.
   **Gameplay stays vanilla DOOM 3:** running drains stamina exactly as on PC. Any Always Run option
   is off by default and drains stamina too.
+  - **The run marker, as Jedi Knight does it** (`iosTouch.m`):
+    - A "^^" marker sits 100 pt above wherever the move stick appeared.
+    - Pushing the thumb up onto it holds forward plus run (a selection-haptic tick as you reach it).
+    - Coming back off it walks again.
+    - The marker is hidden while Always Run is on.
+  - **In DOOM 3** that "run" is the `_speed` button (`BUTTON_RUN`), exactly what Shift does on PC.
+    So stamina drains while on the marker, and running stops by itself when stamina runs out, as
+    vanilla does, in base and RoE alike.
+  - **Always Run** is a tray option, off by default. Vanilla ignores `in_alwaysRun` in single player,
+    so it holds `_speed` the same way. Stamina drains exactly as if you held Shift.
 - DOOM 3's own menus; tomkidd's native launcher screens go.
 - Work goes on branch `ios`; CI keeps the IPAs as artifacts; no public release.
 - Rendering: ANGLE (relayed from another session; no Vulkan or native Metal work).
