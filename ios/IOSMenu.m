@@ -1,15 +1,25 @@
 /*
  * The app's own main menu, over DOOM 3's, laid out for the phone: the whole
- * screen, big buttons. On the left the game's name and CONTINUE (the newest
- * saved game, its screenshot); on the right its buttons, and the page each
- * opens in their place -- NEW GAME's difficulties, LOAD GAME's saves, GAMES
- * (DOOM 3, Resurrection of Evil, co-op), SETTINGS. Over a game in play:
- * RESUME, SAVE GAME, LOAD GAME, SETTINGS, MAIN MENU.
+ * screen, big buttons, in one of two styles (SETTINGS' MENU STYLE):
  *
- * DOOM 3's own menu stays under it: MULTIPLAYER and SETTINGS' "DOOM 3
+ * - CLASSIC (to start with): DOOM 3's own menu as it looks -- its planet and
+ *   name, drawn by the game, left showing in the middle, the screen's sides
+ *   filled with its grid and stars -- with a row of big buttons in its
+ *   steel along the bottom, over its own small ones (and none of the ones
+ *   that mean nothing here: UPDATES, CREDITS, EXIT); a page opens over the
+ *   planet.
+ * - MODERN: on the left the game's name and CONTINUE (the newest saved game,
+ *   its screenshot); on the right its buttons, and the page each opens in
+ *   their place.
+ *
+ * The buttons: CONTINUE, NEW GAME (its difficulties), LOAD GAME (the saves),
+ * MULTIPLAYER, MODS (DOOM 3, Resurrection of Evil, co-op), OPTIONS; over a
+ * game in play RESUME, SAVE GAME, LOAD GAME, OPTIONS, MAIN MENU.
+ *
+ * DOOM 3's own menu stays under it: MULTIPLAYER and OPTIONS' "DOOM 3
  * settings" press its buttons and show it, a button in its corner comes
- * back; and SETTINGS can have it instead, for good (the same button turns
- * this one back on). What it asks of the engine: sys/ios/ios_menu.h.
+ * back; and MENU STYLE's ORIGINAL has it instead, for good (the same button
+ * turns this one back on). What it asks of the engine: sys/ios/ios_menu.h.
  *
  * It's a view under the touch controls' (ios/IOSTouch.m), which lets its
  * touches through over the menus.
@@ -24,7 +34,8 @@
 #include "sys/ios/ios_touch.h"
 
 // The settings, as the app keeps them
-#define IOSMENU_CLASSIC_DEFAULTS_KEY @"iosMenuClassic"	// DOOM 3's own menu instead
+#define IOSMENU_CLASSIC_DEFAULTS_KEY @"iosMenuClassic"	// (before MENU STYLE: DOOM 3's own menu instead)
+#define IOSMENU_STYLE_DEFAULTS_KEY @"iosMenuStyle"		// IOSMENU_STYLE_*
 #define IOSMENU_INTRO_DEFAULTS_KEY @"iosMenuPlayIntro"	// the intro videos as the game starts
 #define IOSMENU_FOV_DEFAULTS_KEY @"iosMenuFov"			// g_fov (the game doesn't keep it)
 // The buttons: this tall, this far apart, this wide; the column's top
@@ -32,6 +43,35 @@
 #define IOSMENU_BUTTON_GAP 8.0
 #define IOSMENU_COLUMN_W 290.0
 #define IOSMENU_MARGIN 24.0
+
+// The classic style's buttons: this tall; the bar along the bottom at least
+// this tall, or this much of the screen; their ends this slanted
+#define IOSMENU_CLASSIC_BUTTON_H 54.0
+#define IOSMENU_CLASSIC_BAR_MIN 82.0
+#define IOSMENU_CLASSIC_BAR_FRAC 0.21
+#define IOSMENU_CLASSIC_SLANT 12.0
+
+enum { IOSMENU_STYLE_CLASSIC = 0, IOSMENU_STYLE_MODERN, IOSMENU_STYLE_ORIGINAL };
+
+static int IOSMenu_Style(void)
+{
+	NSUserDefaults* d = [NSUserDefaults standardUserDefaults];
+	if ([d objectForKey:IOSMENU_STYLE_DEFAULTS_KEY]) {
+		int st = (int)[d integerForKey:IOSMENU_STYLE_DEFAULTS_KEY];
+		return st >= 0 && st <= IOSMENU_STYLE_ORIGINAL ? st : IOSMENU_STYLE_CLASSIC;
+	}
+	return [d boolForKey:IOSMENU_CLASSIC_DEFAULTS_KEY] ? IOSMENU_STYLE_ORIGINAL : IOSMENU_STYLE_CLASSIC;
+}
+
+static void IOSMenu_SetStyle(int st)
+{
+	[[NSUserDefaults standardUserDefaults] setInteger:st forKey:IOSMENU_STYLE_DEFAULTS_KEY];
+}
+
+// DOOM 3's menu's steel: its buttons' face, their edge, their words
+static UIColor* IOSMenu_Steel(CGFloat k) { return [UIColor colorWithRed:0.16 * k green:0.19 * k blue:0.21 * k alpha:0.97]; }
+static UIColor* IOSMenu_SteelEdge(CGFloat a) { return [UIColor colorWithRed:0.62 green:0.74 blue:0.78 alpha:a]; }
+static UIColor* IOSMenu_SteelText(CGFloat a) { return [UIColor colorWithRed:0.84 green:0.9 blue:0.92 alpha:a]; }
 
 static UIColor* IOSMenu_Orange(CGFloat a) { return [UIColor colorWithRed:1.0 green:0.55 blue:0.2 alpha:a]; }
 static UIColor* IOSMenu_Red(CGFloat a) { return [UIColor colorWithRed:0.62 green:0.1 blue:0.06 alpha:a]; }
@@ -105,14 +145,45 @@ static NSString* IOSMenu_When(long long t)
 
 @interface IOSMenuButton : UIButton
 @property (nonatomic, copy) void (^action)(void);
+@property (nonatomic) BOOL classic;			// DOOM 3's menu's steel, its ends slanted
+@property (nonatomic, strong) CAShapeLayer* outline;
 @end
 
 @implementation IOSMenuButton
 
-+ (instancetype)buttonTitled:(NSString*)title detail:(NSString*)detail action:(void (^)(void))action
++ (instancetype)buttonTitled:(NSString*)title detail:(NSString*)detail classic:(BOOL)classic action:(void (^)(void))action
 {
 	IOSMenuButton* b = [IOSMenuButton buttonWithType:UIButtonTypeCustom];
 	b.action = action;
+	b.classic = classic;
+	if (classic) {
+		// as DOOM 3's menu's buttons: steel, its words in the middle, the
+		// ends slanted (the shape and its edge: layoutSubviews)
+		b.backgroundColor = IOSMenu_Steel(1.0);
+		b.titleLabel.numberOfLines = 2;
+		b.titleLabel.textAlignment = NSTextAlignmentCenter;
+		NSMutableAttributedString* t = [[NSMutableAttributedString alloc] initWithString:title attributes:@{
+			NSFontAttributeName: [UIFont systemFontOfSize:16 weight:UIFontWeightHeavy],
+			NSForegroundColorAttributeName: IOSMenu_SteelText(1.0), NSKernAttributeName: @2.5 }];
+		if (detail.length) {
+			[t appendAttributedString:[[NSAttributedString alloc] initWithString:[@"\n" stringByAppendingString:detail] attributes:@{
+				NSFontAttributeName: [UIFont systemFontOfSize:10 weight:UIFontWeightMedium],
+				NSForegroundColorAttributeName: IOSMenu_SteelText(0.55) }]];
+		}
+		[b setAttributedTitle:t forState:UIControlStateNormal];
+		b.contentEdgeInsets = UIEdgeInsetsMake(0, IOSMENU_CLASSIC_SLANT, 0, IOSMENU_CLASSIC_SLANT);
+		b.outline = [CAShapeLayer layer];
+		b.outline.fillColor = UIColor.clearColor.CGColor;
+		b.outline.strokeColor = IOSMenu_SteelEdge(0.5).CGColor;
+		b.outline.lineWidth = 1.5;
+		[b.layer addSublayer:b.outline];
+		b.layer.mask = [CAShapeLayer layer];
+		[b addTarget:b action:@selector(tapped) forControlEvents:UIControlEventTouchUpInside];
+		[b addTarget:b action:@selector(down) forControlEvents:UIControlEventTouchDown | UIControlEventTouchDragEnter];
+		[b addTarget:b action:@selector(up) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside
+			| UIControlEventTouchDragExit | UIControlEventTouchCancel];
+		return b;
+	}
 	b.backgroundColor = [UIColor colorWithRed:0.09 green:0.09 blue:0.1 alpha:0.92];
 	b.layer.cornerRadius = 10.0;
 	b.layer.borderWidth = 1.0;
@@ -148,16 +219,37 @@ static NSString* IOSMenu_When(long long t)
 {
 	[super layoutSubviews];
 	[self viewWithTag:7].frame = CGRectMake(0, 10, 3, self.bounds.size.height - 20);
+	if (self.classic) {
+		CGFloat w = self.bounds.size.width, h = self.bounds.size.height, k = IOSMENU_CLASSIC_SLANT;
+		UIBezierPath* p = [UIBezierPath bezierPath];
+		[p moveToPoint:CGPointMake(k, 0.75)];
+		[p addLineToPoint:CGPointMake(w - 0.75, 0.75)];
+		[p addLineToPoint:CGPointMake(w - k, h - 0.75)];
+		[p addLineToPoint:CGPointMake(0.75, h - 0.75)];
+		[p closePath];
+		((CAShapeLayer*)self.layer.mask).path = p.CGPath;
+		self.outline.path = p.CGPath;
+	}
 }
 
 - (void)down
 {
+	if (self.classic) {
+		self.backgroundColor = IOSMenu_Steel(1.8);
+		self.outline.strokeColor = IOSMenu_SteelEdge(1.0).CGColor;
+		return;
+	}
 	self.backgroundColor = IOSMenu_Red(0.95);
 	self.layer.borderColor = IOSMenu_Orange(0.9).CGColor;
 }
 
 - (void)up
 {
+	if (self.classic) {
+		self.backgroundColor = IOSMenu_Steel(1.0);
+		self.outline.strokeColor = IOSMenu_SteelEdge(0.5).CGColor;
+		return;
+	}
 	self.backgroundColor = [UIColor colorWithRed:0.09 green:0.09 blue:0.1 alpha:0.92];
 	self.layer.borderColor = IOSMenu_Orange(0.35).CGColor;
 }
@@ -166,6 +258,45 @@ static NSString* IOSMenu_When(long long t)
 {
 	[[[UISelectionFeedbackGenerator alloc] init] selectionChanged];
 	if (self.action) self.action();
+}
+
+@end
+
+// ---------------------------------------------------------------- the classic style's sides
+
+// The screen either side of DOOM 3's menu (4:3, in the middle): its grid and
+// its stars, so it reaches the edges
+@interface IOSMenuGrid : UIView
+@end
+
+@implementation IOSMenuGrid
+
+- (void)drawRect:(CGRect)rect
+{
+	CGContextRef c = UIGraphicsGetCurrentContext();
+	CGSize sz = self.bounds.size;
+	[[UIColor colorWithRed:0.02 green:0.03 blue:0.035 alpha:1.0] setFill];
+	CGContextFillRect(c, self.bounds);
+	// the grid
+	[[UIColor colorWithRed:0.35 green:0.5 blue:0.55 alpha:0.10] setStroke];
+	CGContextSetLineWidth(c, 1.0);
+	for (CGFloat x = fmod(sz.width, 24.0); x < sz.width; x += 24.0) {
+		CGContextMoveToPoint(c, x + 0.5, 0);
+		CGContextAddLineToPoint(c, x + 0.5, sz.height);
+	}
+	for (CGFloat y = 0; y < sz.height; y += 24.0) {
+		CGContextMoveToPoint(c, 0, y + 0.5);
+		CGContextAddLineToPoint(c, sz.width, y + 0.5);
+	}
+	CGContextStrokePath(c);
+	// the stars: the same ones each time
+	srand48(3);
+	int n = (int)(sz.width * sz.height / 900.0);
+	for (int i = 0; i < n; i++) {
+		CGFloat x = drand48() * sz.width, y = drand48() * sz.height, r = 0.4 + drand48() * 0.8;
+		[[UIColor colorWithWhite:1.0 alpha:0.12 + drand48() * 0.45] setFill];
+		CGContextFillEllipseInRect(c, CGRectMake(x - r, y - r, 2 * r, 2 * r));
+	}
 }
 
 @end
@@ -192,6 +323,12 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	int					bInGame;
 	int					gameKind;
 	UIButton*			backToMenu;		// over DOOM 3's own menu: back to this one
+	int					style;			// IOSMENU_STYLE_CLASSIC or _MODERN
+	IOSMenuGrid*		sideLeft;		// classic: the sides of DOOM 3's menu
+	IOSMenuGrid*		sideRight;
+	UIView*				bar;			// classic: the bottom, its buttons
+	UIStackView*		barStack;
+	UIView*				panel;			// classic: a page, over the planet
 	iosMenuSave_t		aSaves[IOS_MENU_MAX_SAVES];
 	int					numSaves;
 }
@@ -243,6 +380,30 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	[continueCard addSubview:continueText];
 	[self addSubview:continueCard];
 
+	sideLeft = [[IOSMenuGrid alloc] init];
+	sideRight = [[IOSMenuGrid alloc] init];
+	sideLeft.contentMode = sideRight.contentMode = UIViewContentModeRedraw;
+	[self addSubview:sideLeft];
+	[self addSubview:sideRight];
+	bar = [[UIView alloc] init];
+	bar.backgroundColor = [UIColor colorWithRed:0.03 green:0.04 blue:0.045 alpha:1.0];
+	UIView* barEdge = [[UIView alloc] init];
+	barEdge.backgroundColor = IOSMenu_SteelEdge(0.35);
+	barEdge.tag = 8;
+	[bar addSubview:barEdge];
+	barStack = [[UIStackView alloc] init];
+	barStack.axis = UILayoutConstraintAxisHorizontal;
+	barStack.distribution = UIStackViewDistributionFillEqually;
+	barStack.spacing = 6.0;
+	[bar addSubview:barStack];
+	[self addSubview:bar];
+	panel = [[UIView alloc] init];
+	panel.backgroundColor = [UIColor colorWithRed:0.03 green:0.045 blue:0.05 alpha:0.94];
+	panel.layer.borderWidth = 1.5;
+	panel.layer.borderColor = IOSMenu_SteelEdge(0.45).CGColor;
+	panel.layer.cornerRadius = 4.0;
+	[self addSubview:panel];
+
 	page = [[UIScrollView alloc] init];
 	page.showsVerticalScrollIndicator = NO;
 	page.alwaysBounceVertical = NO;
@@ -268,6 +429,10 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	CGFloat left = fmax(in.left, IOSMENU_MARGIN), right = b.size.width - fmax(in.right, IOSMENU_MARGIN);
 	CGFloat top = fmax(in.top, 16.0), bottom = b.size.height - fmax(in.bottom, 12.0);
 	background.frame = b;
+	if (style == IOSMENU_STYLE_CLASSIC) {
+		[self layoutClassic];
+		return;
+	}
 
 	// the right: the column, as wide as it can be up to IOSMENU_COLUMN_W (a
 	// page's list wider)
@@ -286,6 +451,32 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	CGFloat shotH = cardH - 64.0;
 	continueShot.frame = CGRectMake(0, 0, continueCard.bounds.size.width, shotH);
 	continueText.frame = CGRectMake(14, shotH + 6, continueCard.bounds.size.width - 28, 52);
+}
+
+// Classic: DOOM 3's menu (4:3, as tall as the screen, in the middle) left
+// showing, the sides filled; the bar along the bottom over its own buttons;
+// a page over the planet, above the bar
+- (void)layoutClassic
+{
+	CGRect b = self.bounds;
+	UIEdgeInsets in = self.safeAreaInsets;
+	CGFloat w43 = fmin(b.size.width, b.size.height * 4.0 / 3.0);
+	CGFloat x43 = (b.size.width - w43) * 0.5;
+	sideLeft.frame = CGRectMake(0, 0, x43, b.size.height);
+	sideRight.frame = CGRectMake(x43 + w43, 0, b.size.width - x43 - w43, b.size.height);
+	CGFloat barH = fmax(IOSMENU_CLASSIC_BAR_MIN, b.size.height * IOSMENU_CLASSIC_BAR_FRAC) + fmax(in.bottom - 8.0, 0.0);
+	bar.frame = CGRectMake(0, b.size.height - barH, b.size.width, barH);
+	[bar viewWithTag:8].frame = CGRectMake(0, 0, b.size.width, 1.0);
+	CGFloat left = fmax(in.left, 12.0), right = b.size.width - fmax(in.right, 12.0);
+	CGFloat bh = IOSMENU_CLASSIC_BUTTON_H;
+	CGFloat by = fmin((barH - fmax(in.bottom - 8.0, 0.0) - bh) * 0.5, barH - bh - fmax(in.bottom, 8.0));
+	barStack.frame = CGRectMake(left, fmax(6.0, by), right - left, bh);
+	// a page: over the planet, above the bar
+	CGFloat top = fmax(in.top, 12.0);
+	CGFloat pw = fmin(460.0, w43 * 0.8);
+	panel.frame = CGRectMake((b.size.width - pw) * 0.5, top, pw, b.size.height - barH - top - 10.0);
+	page.frame = CGRectInset(panel.frame, 14.0, 12.0);
+	[self layoutStack];
 }
 
 // the column's buttons, from its top (centred while they fit)
@@ -324,11 +515,18 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 
 - (void)refresh
 {
+	style = IOSMenu_Style() == IOSMENU_STYLE_MODERN ? IOSMENU_STYLE_MODERN : IOSMENU_STYLE_CLASSIC;
+	BOOL bClassic = style == IOSMENU_STYLE_CLASSIC;
+	// classic: DOOM 3's menu showing through; modern: the app's own
+	self.backgroundColor = bClassic ? UIColor.clearColor : UIColor.blackColor;
+	background.hidden = bClassic;
+	title.hidden = subtitle.hidden = bClassic;
+	sideLeft.hidden = sideRight.hidden = bar.hidden = !bClassic;
 	bInGame = IOS_MenuInGame();
 	gameKind = IOS_MenuGameKind();
 	[self titleFor:gameKind];
 	numSaves = gameKind == 2 ? 0 : IOS_MenuSaves(aSaves, IOS_MENU_MAX_SAVES);
-	continueCard.hidden = bInGame || numSaves == 0;
+	continueCard.hidden = bInGame || numSaves == 0 || bClassic;
 	if (!continueCard.hidden) {
 		const iosMenuSave_t* s = &aSaves[0];
 		continueShot.image = IOSMenu_LoadTGA([NSString stringWithUTF8String:s->shot]);
@@ -354,7 +552,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 
 - (void)addButton:(NSString*)t detail:(NSString*)detail action:(void (^)(void))action
 {
-	IOSMenuButton* b = [IOSMenuButton buttonTitled:t detail:detail action:action];
+	IOSMenuButton* b = [IOSMenuButton buttonTitled:t detail:detail classic:(style == IOSMENU_STYLE_CLASSIC) action:action];
 	[b.heightAnchor constraintEqualToConstant:(detail.length ? IOSMENU_BUTTON_H + 10.0 : IOSMENU_BUTTON_H)].active = YES;
 	[stack addArrangedSubview:b];
 }
@@ -364,7 +562,8 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	UILabel* l = [[UILabel alloc] init];
 	l.attributedText = [[NSAttributedString alloc] initWithString:t attributes:@{
 		NSFontAttributeName: [UIFont systemFontOfSize:13 weight:UIFontWeightHeavy],
-		NSForegroundColorAttributeName: IOSMenu_Orange(0.9), NSKernAttributeName: @3.0 }];
+		NSForegroundColorAttributeName: style == IOSMENU_STYLE_CLASSIC ? IOSMenu_SteelText(0.9) : IOSMenu_Orange(0.9),
+		NSKernAttributeName: @3.0 }];
 	[l.heightAnchor constraintEqualToConstant:24.0].active = YES;
 	[stack addArrangedSubview:l];
 }
@@ -375,13 +574,52 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	[self addButton:@"‹  BACK" detail:nil action:^{ [weak showPage:PAGE_MAIN]; }];
 }
 
+// Classic: the main buttons, along the bottom (whatever page is open)
+- (void)fillBar
+{
+	for (UIView* v in barStack.arrangedSubviews) {
+		[barStack removeArrangedSubview:v];
+		[v removeFromSuperview];
+	}
+	__weak IOSMenuView* weak = self;
+	NSMutableArray* aButtons = [NSMutableArray array];
+	void (^add)(NSString*, void (^)(void)) = ^(NSString* t, void (^action)(void)) {
+		[aButtons addObject:[IOSMenuButton buttonTitled:t detail:nil classic:YES action:action]];
+	};
+	if (bInGame) {
+		add(@"RESUME", ^{ IOS_ResumeGame(); });
+		add(@"SAVE GAME", ^{ [weak saveGame]; });
+	}
+	if (gameKind != 2) {
+		if (!bInGame && numSaves > 0) add(@"CONTINUE", ^{ [weak continueTapped]; });
+		if (!bInGame) add(@"NEW GAME", ^{ [weak showPage:PAGE_NEWGAME]; });
+		add(@"LOAD GAME", ^{ [weak showPage:PAGE_LOAD]; });
+	}
+	if (!bInGame) {
+		add(@"MULTIPLAYER", ^{ [weak classic:@"MULTIPLAYER"]; });
+		add(@"MODS", ^{ [weak showPage:PAGE_GAMES]; });
+	}
+	add(@"OPTIONS", ^{ [weak showPage:PAGE_SETTINGS]; });
+	if (bInGame) add(@"MAIN MENU", ^{ IOS_MenuQuitToMain(); });
+	for (UIView* v in aButtons) [barStack addArrangedSubview:v];
+}
+
 - (void)showPage:(iosMenuPage_t)p
 {
 	pageShown = p;
 	[self clearPage];
 	__weak IOSMenuView* weak = self;
+	if (style == IOSMENU_STYLE_CLASSIC) {
+		// the main buttons along the bottom; a page over the planet
+		[self fillBar];
+		panel.hidden = page.hidden = p == PAGE_MAIN;
+	} else {
+		panel.hidden = YES;
+		page.hidden = NO;
+	}
 	switch (p) {
 	case PAGE_MAIN: {
+		if (style == IOSMENU_STYLE_CLASSIC) break;
 		if (bInGame) {
 			[self addButton:@"RESUME" detail:nil action:^{ IOS_ResumeGame(); }];
 			[self addButton:@"SAVE GAME" detail:nil action:^{ [weak saveGame]; }];
@@ -427,7 +665,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	}
 
 	case PAGE_GAMES: {
-		[self addHeading:@"GAMES"];
+		[self addHeading:style == IOSMENU_STYLE_CLASSIC ? @"MODS" : @"GAMES"];
 		iosMenuMod_t aMods[IOS_MENU_MAX_MODS];
 		int current = 0;
 		int num = IOS_MenuMods(aMods, IOS_MENU_MAX_MODS, &current);
@@ -443,7 +681,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	}
 
 	case PAGE_SETTINGS: {
-		[self addHeading:@"SETTINGS"];
+		[self addHeading:style == IOSMENU_STYLE_CLASSIC ? @"OPTIONS" : @"SETTINGS"];
 		[self addSlider:@"BRIGHTNESS" min:0.5 max:2.0 value:IOS_CVarFloat("r_brightness") format:@"%.2f" change:^(float v) {
 			IOS_SetCVar("r_brightness", [NSString stringWithFormat:@"%.2f", v].UTF8String);
 		}];
@@ -455,16 +693,17 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 			float dB = v <= 0.5f ? -40.0f : fmaxf(-40.0f, 20.0f * log10f(v / 100.0f));
 			IOS_SetCVar("s_volume_dB", [NSString stringWithFormat:@"%.1f", dB].UTF8String);
 		}];
-		[self addSlider:@"LOOK SPEED" min:0.5 max:2.0 value:IOSTouch_LookScale() format:@"%.2fx" change:^(float v) {
+		[self addSlider:@"LOOK SPEED" min:0.5 max:3.0 value:IOSTouch_LookScale() format:@"%.2fx" change:^(float v) {
 			IOSTouch_SetLookScale(v);
 		}];
 		[self addSwitch:@"PLAY INTRO AT START" on:IOS_PlayIntro() change:^(BOOL on) {
 			[[NSUserDefaults standardUserDefaults] setBool:on forKey:IOSMENU_INTRO_DEFAULTS_KEY];
 		}];
-		[self addSwitch:@"USE DOOM 3'S OWN MENU" on:NO change:^(BOOL on) {
-			if (!on) return;
-			[[NSUserDefaults standardUserDefaults] setBool:YES forKey:IOSMENU_CLASSIC_DEFAULTS_KEY];
-			[weak showPage:PAGE_MAIN];
+		[self addChoice:@"MENU STYLE" options:@[ @"CLASSIC", @"MODERN", @"ORIGINAL" ] picked:IOSMenu_Style() change:^(int st) {
+			IOSMenu_SetStyle(st);
+			if (st == IOSMENU_STYLE_ORIGINAL) return;	// (DOOM 3's own: frame hides this one)
+			[weak refresh];
+			[weak showPage:PAGE_SETTINGS];
 		}];
 		[self addButton:@"MORE DOOM 3 SETTINGS" detail:@"Its own menu: controls, sound, video" action:^{ [weak classic:@"OPTIONS"]; }];
 		[self addBack];
@@ -541,6 +780,24 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	[sw addAction:[UIAction actionWithHandler:^(UIAction* a) { change(weakSwitch.on); }] forControlEvents:UIControlEventValueChanged];
 }
 
+- (void)addChoice:(NSString*)t options:(NSArray<NSString*>*)options picked:(int)picked change:(void (^)(int))change
+{
+	UIView* row = [self rowTitled:t height:72.0];
+	UISegmentedControl* seg = [[UISegmentedControl alloc] initWithItems:options];
+	seg.translatesAutoresizingMaskIntoConstraints = NO;
+	seg.selectedSegmentIndex = picked;
+	seg.selectedSegmentTintColor = style == IOSMENU_STYLE_CLASSIC ? IOSMenu_Steel(2.2) : IOSMenu_Red(1.0);
+	[seg setTitleTextAttributes:@{ NSForegroundColorAttributeName: UIColor.whiteColor,
+								   NSFontAttributeName: [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy] } forState:UIControlStateNormal];
+	[row addSubview:seg];
+	[seg.leadingAnchor constraintEqualToAnchor:row.leadingAnchor constant:12].active = YES;
+	[seg.trailingAnchor constraintEqualToAnchor:row.trailingAnchor constant:-12].active = YES;
+	[seg.bottomAnchor constraintEqualToAnchor:row.bottomAnchor constant:-10].active = YES;
+	__weak UISegmentedControl* weakSeg = seg;
+	[seg addAction:[UIAction actionWithHandler:^(UIAction* a) { change((int)weakSeg.selectedSegmentIndex); }]
+		forControlEvents:UIControlEventValueChanged];
+}
+
 // ------------------------------------------------ actions
 
 - (void)continueTapped
@@ -566,12 +823,13 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 
 - (void)frame:(int)bOverMenus
 {
-	int bClassic = [[NSUserDefaults standardUserDefaults] boolForKey:IOSMENU_CLASSIC_DEFAULTS_KEY];
+	int bClassic = IOSMenu_Style() == IOSMENU_STYLE_ORIGINAL;	// (DOOM 3's own menu, for good)
 	int bMain = bOverMenus && IOS_MenuIsMain();
 	if (!bOverMenus) self.classicNow = NO;	// (left the menus: this one next time)
 	int bShow = bMain && !bClassic && !self.classicNow;
 	if (bShow && self.hidden) [self refresh];
 	if (bShow && (IOS_MenuInGame() != bInGame || IOS_MenuGameKind() != gameKind)) [self refresh];
+	if (bShow && style != (IOSMenu_Style() == IOSMENU_STYLE_MODERN ? IOSMENU_STYLE_MODERN : IOSMENU_STYLE_CLASSIC)) [self refresh];
 	self.hidden = !bShow;
 	// over DOOM 3's own main menu: back to this one (for good, if it was
 	// switched off)
@@ -580,7 +838,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 
 - (void)backTapped
 {
-	[[NSUserDefaults standardUserDefaults] setBool:NO forKey:IOSMENU_CLASSIC_DEFAULTS_KEY];
+	if (IOSMenu_Style() == IOSMENU_STYLE_ORIGINAL) IOSMenu_SetStyle(IOSMENU_STYLE_CLASSIC);
 	self.classicNow = NO;
 }
 

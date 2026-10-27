@@ -37,8 +37,8 @@
  * - Over a cinematic or the story intro: a tap anywhere skips it.
  * - Over the PDA: a finger puts its cursor where it is; a tap clicks, a
  *   drag scrolls the text or list under it; a close button in the corner.
- * - In play, a tap on the screen (not a button) puts away the tip or the
- *   objective showing.
+ * - In play, a tap on the screen (not a button; the stick's side too)
+ *   puts away the tip or the objective showing.
  * - Over the menus: the keyboard comes up for a text field with the focus
  *   (the multiplayer menus' names; Enter puts it away), its typing going in
  *   as a keyboard's. Over the multiplayer games' list, JOIN in the top
@@ -74,9 +74,10 @@ int IOSMenu_Showing(void);
 
 // Look speed: degrees the view turns per point of finger travel. In the
 // ratio of the Jedi Knight port's look scale (1.6 across, 1.3 up and down);
-// raised a fifth after the first try on the phone.
-#define IOSTOUCH_LOOK_DEG_X 0.30f
-#define IOSTOUCH_LOOK_DEG_Y 0.24f
+// raised after trying it on the phone (a fifth, then two fifths more); the
+// app's menu's LOOK SPEED scales it.
+#define IOSTOUCH_LOOK_DEG_X 0.42f
+#define IOSTOUCH_LOOK_DEG_Y 0.34f
 // The move stick: radius in points (and its knob's), dead zone as a fraction
 // of it; it appears wherever the left thumb lands in the left
 // IOSTOUCH_STICK_ZONE of the screen, and only while that thumb is down
@@ -1489,7 +1490,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		if (s->role == ROLE_GUI) {
 			iosTouch_bGuiDown = 0;	// (a tap's click: IOSTouch_TakeInput)
 		}
-		if (s->role == ROLE_LOOK && !bCancelled && t.timestamp - s->startTime < IOSTOUCH_TAP_TIME
+		if ((s->role == ROLE_LOOK || s->role == ROLE_STICK) && !bCancelled && t.timestamp - s->startTime < IOSTOUCH_TAP_TIME
 			&& hypot(s->last.x - s->start.x, s->last.y - s->start.y) < IOSTOUCH_TAP_SLOP) {
 			IOS_Dismiss();	// a tap: the tip or objective showing goes
 		}

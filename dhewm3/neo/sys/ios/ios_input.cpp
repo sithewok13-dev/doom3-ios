@@ -414,10 +414,10 @@ int IOS_GetLevels( iosTouchLevel_t *out, int max ) {
 ================
 IOS_PlayCheatSound
 
-Cheat mode going on: Betruger's laugh, the sound shader the player picked
-("betruger laugh 01" in its list, with its underscores shown as spaces), from
-the player's own DOOM 3 files -- found by its name, whatever is round it
-(failing that, his first laugh)
+Cheat mode going on: Betruger's laugh -- the other one of his than "betruger
+laugh 01" (as its list showed his sound shaders, underscores as spaces),
+which the player tried first and passed over. From the player's own DOOM 3
+files, found by its name (failing another, that one).
 ================
 */
 void IOS_PlayCheatSound( void ) {
@@ -425,7 +425,7 @@ void IOS_PlayCheatSound( void ) {
 	static bool looked;
 	if ( !looked ) {
 		looked = true;
-		idStr fallback;
+		idStr first;
 		int num = declManager->GetNumDecls( DECL_SOUND );
 		for ( int i = 0; i < num; i++ ) {
 			const idDecl *decl = declManager->DeclByIndex( DECL_SOUND, i, false );
@@ -437,16 +437,17 @@ void IOS_PlayCheatSound( void ) {
 			if ( name.Find( "betruger", false ) < 0 || name.Find( "laugh", false ) < 0 ) {
 				continue;
 			}
-			if ( name.Find( "betruger laugh 01", false ) >= 0 ) {
-				found = decl->GetName();
-				break;
+			if ( name.Find( "laugh 01", false ) >= 0 ) {
+				if ( first.Length() == 0 ) {
+					first = decl->GetName();
+				}
+				continue;
 			}
-			if ( fallback.Length() == 0 ) {
-				fallback = decl->GetName();
-			}
+			found = decl->GetName();
+			break;
 		}
 		if ( found.Length() == 0 ) {
-			found = fallback;
+			found = first;
 		}
 	}
 	idSoundWorld *world = soundSystem->GetPlayingSoundWorld();
