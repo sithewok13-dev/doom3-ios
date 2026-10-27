@@ -158,6 +158,9 @@ would be new work; tell me if you want it.
   - The map list is read from `maps/game/*.map` in the game's own paks: 27 maps in base, 12 in RoE.
   - Loading a map starts it with your current weapons from `give all`.
 - Fly and notarget end at each new level, as in your ports.
+- **Flashlight:** in DOOM 3 and Resurrection of Evil (and the Phobos port's code) the flashlight has no
+  battery: it's already unlimited, as in vanilla. The battery is a BFG Edition feature. If a supported
+  game ever has one, cheat mode keeps it full.
 - **Doesn't translate:**
   - JK's 4-star Force powers and Sam's network cheat bits: DOOM 3 is single player here.
   - Sam's pit rescue: DOOM 3 barely has pits. God mode covers most of it.
@@ -188,6 +191,15 @@ would be new work; tell me if you want it.
   - **Partly doesn't translate:** DOOM 3's player model has no "holding a phone" animation, so the
     player gets an existing pose (gun raised or idle), not JK's arm-out phone pose.
 - **Cinematic burst:** 5 shots sweeping round the most interesting target, as JK and Sam do.
+
+## Possible later: Doom 3: Phobos
+Phobos ships its own game code, so stock dhewm3 can't run it. An unofficial dhewm3 port of that code
+exists under the GPL (TwelveEyes/dhewm3-sdk, branch `tfphobos`, built from the RoE code as `tfphobos`).
+It could be linked into the app as a third game, next to base and d3xp, and picked under Mods.
+- Needs: base/ + d3xp/ (RoE) + the free Phobos files from ModDB in a `tfphobos/` folder.
+- The port's own list of what's missing: the biohelmet (so some toxin areas are removed), clickable
+  item and text-message GUIs, camera blur, bloom.
+- Not started; your call.
 
 ## Other modernization (from the relayed list), in priority order
 1. Mods: any extra `.pk4` dropped into `base/` or `d3xp/` in Files is loaded, as on PC.
