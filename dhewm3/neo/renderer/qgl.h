@@ -32,8 +32,15 @@ If you have questions concerning this license or the applicable additional terms
 #ifndef __QGL_H__
 #define __QGL_H__
 
+#if defined( D3_IOS )
+// Apple's OpenGL ES (deprecated, but there until ANGLE replaces it)
+#define GLES_SILENCE_DEPRECATION
+#include <OpenGLES/ES2/gl.h>
+#include <OpenGLES/ES2/glext.h>
+#else
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#endif
 
 typedef void (*GLExtension_t)(void);
 
