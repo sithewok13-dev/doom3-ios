@@ -381,7 +381,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	[self clearPage];
 	__weak IOSMenuView* weak = self;
 	switch (p) {
-	case PAGE_MAIN:
+	case PAGE_MAIN: {
 		if (bInGame) {
 			[self addButton:@"RESUME" detail:nil action:^{ IOS_ResumeGame(); }];
 			[self addButton:@"SAVE GAME" detail:nil action:^{ [weak saveGame]; }];
@@ -397,6 +397,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 		[self addButton:@"SETTINGS" detail:nil action:^{ [weak showPage:PAGE_SETTINGS]; }];
 		if (bInGame) [self addButton:@"MAIN MENU" detail:nil action:^{ IOS_MenuQuitToMain(); }];
 		break;
+	}
 
 	case PAGE_NEWGAME: {
 		[self addHeading:@"NEW GAME"];
@@ -412,7 +413,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 		break;
 	}
 
-	case PAGE_LOAD:
+	case PAGE_LOAD: {
 		[self addHeading:@"LOAD GAME"];
 		if (numSaves == 0) [self addHeading:@"NO SAVED GAMES YET"];
 		for (int i = 0; i < numSaves; i++) {
@@ -423,6 +424,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 		}
 		[self addBack];
 		break;
+	}
 
 	case PAGE_GAMES: {
 		[self addHeading:@"GAMES"];
@@ -440,7 +442,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 		break;
 	}
 
-	case PAGE_SETTINGS:
+	case PAGE_SETTINGS: {
 		[self addHeading:@"SETTINGS"];
 		[self addSlider:@"BRIGHTNESS" min:0.5 max:2.0 value:IOS_CVarFloat("r_brightness") format:@"%.2f" change:^(float v) {
 			IOS_SetCVar("r_brightness", [NSString stringWithFormat:@"%.2f", v].UTF8String);
@@ -467,6 +469,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 		[self addButton:@"MORE DOOM 3 SETTINGS" detail:@"Its own menu: controls, sound, video" action:^{ [weak classic:@"OPTIONS"]; }];
 		[self addBack];
 		break;
+	}
 	}
 	[self setNeedsLayout];
 	[self layoutIfNeeded];
