@@ -146,6 +146,18 @@ CONTROLS = SWAPPED, which mirrors the stick and the FIRE cluster. The relayed re
 "the customization UI". There isn't one to copy, so I'll carry over SWAPPED. A drag-to-move editor
 would be new work; tell me if you want it.
 
+**Your asks (27 Oct):**
+- **CAMERA button** shows a camera: Apple's `camera.fill` symbol, as on the Jedi Knight port's
+  CAMERA (an outline `camera` on its tray switch).
+- **Weapon wheel** on NEXT WPN, as described above. One slice per weapon:
+  - base: fists, flashlight, chainsaw, pistol, shotgun, machine gun, chaingun, grenades, plasma gun,
+    rocket launcher, BFG, Soul Cube
+  - RoE adds the grabber, double-barrel shotgun and Artifact
+  - Icons from your own game files (as Serious Sam takes its HUD icons), or clean outlines if the files
+    have no good weapon icons. Ammo under each; not found faint; empty grey.
+- **CHEAT button: a pentagram in a ring** (your choice). White when the cheat is off. While it's on, the
+  emblem glows red with a gold edge, like Jedi Knight's Sith emblem turning red.
+
 ## Phase 3: cheat (the `sithewok` cheat, same UX)
 
 - The tray's CHEAT switch shows the CHEAT button (remembered). Holding CHEAT 0.5 s toggles the cheat
