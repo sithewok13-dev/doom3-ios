@@ -427,6 +427,18 @@ const char *idUserInterfaceLocal::HandleEvent( const sysEvent_t *event, int _tim
 				// yes, result could be negative, doesn't matter, code below checks that anyway
 				cursorX = (event->evValue  - xOffset) * (float(VIRTUAL_WIDTH)/w);
 				cursorY = (event->evValue2 - yOffset) * (float(VIRTUAL_HEIGHT)/h);
+#ifdef D3_IOS
+				// the main menu's buttons along the bottom, across the
+				// screen and taller (IOS_WIDE_BAND): where they're drawn
+				if ( IOS_IsWideMenu( this ) && IOS_WideBand() ) {
+					float yv = event->evValue2 * ( float(VIRTUAL_HEIGHT) / realH );
+					float top = VIRTUAL_HEIGHT - ( VIRTUAL_HEIGHT - IOS_WIDE_BAND_TOP ) * IOS_WIDE_BAND_SCALE;
+					if ( yv >= top ) {
+						cursorX = event->evValue * ( float(VIRTUAL_WIDTH) / realW );
+						cursorY = VIRTUAL_HEIGHT - ( VIRTUAL_HEIGHT - yv ) / IOS_WIDE_BAND_SCALE;
+					}
+				}
+#endif
 			}
 		} else {
 			// not a fullscreen GUI but some ingame thing - no scaling needed
@@ -934,10 +946,8 @@ bool IOS_GuiLabelRect( idUserInterface *gui, const char *label, float *x, float 
 	if ( !desktop || !desktop->IOS_FindLabelRect( label, &r ) ) {
 		return false;
 	}
-	*x = r.x;
-	*y = r.y;
-	*w = r.w;
-	*h = r.h;
+	float aspect = ( glConfig.winHeight > 0 ) ? float( glConfig.winWidth ) / float( glConfig.winHeight ) : 4.0f / 3.0f;
+	IOS_WideToScreen( r, false, aspect, x, y, w, h );
 	return true;
 }
 
@@ -960,6 +970,10 @@ void IOS_WideMenuFrame( idUserInterface *gui, bool wide ) {
 	if ( !desktop ) {
 		return;
 	}
+	// (the bottom buttons bigger only while the main page shows: they're
+	// still there under the others, where their places are needed)
+	float bx, by;
+	IOS_SetWideBand( wide && desktop->IOS_FindLabel( "LOAD GAME", &bx, &by ) && desktop->IOS_FindLabel( "MULTIPLAYER", &bx, &by ) );
 	if ( wide ) {
 		desktop->IOS_ShowLabel( "CREDITS", false );
 		desktop->IOS_ShowLabel( "EXIT", false );

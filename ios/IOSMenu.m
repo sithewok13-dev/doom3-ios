@@ -843,11 +843,8 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	float x, y, w, h;
 	styleButton.hidden = !(bMain && st == IOSMENU_STYLE_CLASSIC && IOS_MenuLabelRect("MENU STYLE", &x, &y, &w, &h));
 	if (!styleButton.hidden) {
-		// (the 640 x 480 of buttons: 4:3, as tall as the screen, in the middle)
 		CGSize sz = self.superview.bounds.size;
-		CGFloat w43 = fmin(sz.width, sz.height * 4.0 / 3.0), h43 = w43 * 0.75;
-		CGFloat x43 = (sz.width - w43) * 0.5, y43 = (sz.height - h43) * 0.5;
-		styleButton.frame = CGRectMake(x43 + x * w43 / 640.0, y43 + y * h43 / 480.0, w * w43 / 640.0, h * h43 / 480.0);
+		styleButton.frame = CGRectMake(x * sz.width, y * sz.height, w * sz.width, h * sz.height);
 	}
 }
 

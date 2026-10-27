@@ -1524,7 +1524,20 @@ bool IOS_IsWideMenu( idUserInterface *gui ) {
 	return gui != NULL && gui == iosWideMenu;
 }
 
+static bool iosWideBand;
+
+void IOS_SetWideBand( bool band ) {
+	iosWideBand = band;
+}
+
+bool IOS_WideBand( void ) {
+	return iosWideBand;
+}
+
 int IOS_WideMode( const idRectangle &r, bool plain ) {
+	if ( iosWideBand && r.y >= IOS_WIDE_BAND_TOP ) {
+		return idDeviceContext::IOS_WIDE_BAND;
+	}
 	if ( !plain ) {
 		return idDeviceContext::IOS_WIDE_43;
 	}
@@ -1538,6 +1551,33 @@ int IOS_WideMode( const idRectangle &r, bool plain ) {
 		return idDeviceContext::IOS_WIDE_RIGHT;
 	}
 	return idDeviceContext::IOS_WIDE_43;
+}
+
+void IOS_WideToScreen( const idRectangle &r, bool plain, float aspect, float *x, float *y, float *w, float *h ) {
+	float s = aspect > 1.4f ? ( float(VIRTUAL_WIDTH) / float(VIRTUAL_HEIGHT) ) / aspect : 1.0f;
+	float sx = s, ox = ( 1.0f - s ) * 0.5f * VIRTUAL_WIDTH, sy = 1.0f, oy = 0.0f;
+	switch ( IOS_WideMode( r, plain ) ) {
+	case idDeviceContext::IOS_WIDE_BAND:
+		sx = 1.0f;
+		ox = 0.0f;
+		sy = IOS_WIDE_BAND_SCALE;
+		oy = VIRTUAL_HEIGHT * ( 1.0f - IOS_WIDE_BAND_SCALE );
+		break;
+	case idDeviceContext::IOS_WIDE_STRETCH:
+		sx = 1.0f;
+		ox = 0.0f;
+		break;
+	case idDeviceContext::IOS_WIDE_LEFT:
+		ox = 0.0f;
+		break;
+	case idDeviceContext::IOS_WIDE_RIGHT:
+		ox = ( 1.0f - s ) * VIRTUAL_WIDTH;
+		break;
+	}
+	*x = ( r.x * sx + ox ) / VIRTUAL_WIDTH;
+	*y = ( r.y * sy + oy ) / VIRTUAL_HEIGHT;
+	*w = r.w * sx / VIRTUAL_WIDTH;
+	*h = r.h * sy / VIRTUAL_HEIGHT;
 }
 
 /*

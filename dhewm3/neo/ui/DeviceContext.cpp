@@ -272,6 +272,10 @@ void idDeviceContext::IOS_SetMenuTransform( int mode ) {
 		fixScaleForMenu.Set( 1, 1 );
 		fixOffsetForMenu.Set( 0, 0 );
 		break;
+	case IOS_WIDE_BAND:
+		fixScaleForMenu.Set( 1, IOS_WIDE_BAND_SCALE );
+		fixOffsetForMenu.Set( 0, VIRTUAL_HEIGHT * ( 1.0f - IOS_WIDE_BAND_SCALE ) );
+		break;
 	case IOS_WIDE_LEFT:
 		fixScaleForMenu.Set( scaleX, 1 );
 		fixOffsetForMenu.Set( 0, 0 );

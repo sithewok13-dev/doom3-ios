@@ -178,6 +178,10 @@ class idUserInterface;
 void	IOS_SetWideMenu( idUserInterface *gui );
 bool	IOS_IsWideMenu( idUserInterface *gui );
 int		IOS_WideMode( const idRectangle &r, bool plain );
+void	IOS_SetWideBand( bool band );
+bool	IOS_WideBand( void );
+// where r (in the 640 x 480) is drawn, wide, as fractions of the screen
+void	IOS_WideToScreen( const idRectangle &r, bool plain, float aspect, float *x, float *y, float *w, float *h );
 #endif
 
 class idWindow {
