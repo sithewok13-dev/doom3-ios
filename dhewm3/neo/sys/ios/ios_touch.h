@@ -54,15 +54,27 @@ enum {
 	IOSTOUCH_CMD_RUN	= 1 << 1,	// the run marker, or Always Run (vanilla stamina either way)
 };
 
-// What the overlay shows for: hidden in menus and the PDA (a finger is the
-// mouse there), the controls in play, a tap to skip over cinematics and the
-// story intro, and the console's keyboard and close buttons over the console
+// What the overlay shows for: hidden in menus (a finger is the mouse
+// there), the controls in play, a tap to skip over cinematics and the story
+// intro, a close button over the PDA (whose cursor goes where a finger is),
+// and the console's keyboard and close buttons over the console
 enum {
 	IOSTOUCH_MODE_HIDDEN = 0,
 	IOSTOUCH_MODE_GAMEPLAY,
 	IOSTOUCH_MODE_SKIP,
+	IOSTOUCH_MODE_PDA,
 	IOSTOUCH_MODE_CONSOLE,
 };
+
+// One slot of the weapon wheel, as the game reports it (sys/ios/ios_game.h)
+#define IOSTOUCH_MAX_WEAPONS 32
+typedef struct {
+	int		slot;				// the game's weapon number (def_weaponN)
+	char	className[64];		// its entityDef (weapon_shotgun)
+	char	name[48];			// as the game names it (Shotgun)
+	int		owned, selectable;	// the player has it; has it and can switch to it (ammo)
+	int		ammo;				// -1: it takes none
+} iosTouchWeapon_t;
 
 // the keys the on-screen keyboard sends the console besides text
 enum {
@@ -73,6 +85,7 @@ enum {
 // the overlay (ios/IOSTouch.m)
 void	IOSTouch_Frame( int mode );						// once a frame, on the main thread
 void	IOSTouch_TakeInput( iosTouchInput_t *input );	// as each usercmd is built
+int		IOSTouch_GuiTouch( float *x, float *y, float *w, float *h );	// a finger on the PDA: where, and the screen's size (points)
 
 // the engine (sys/ios/ios_input.cpp), for the overlay
 void	IOS_Impulse( int impulse );			// a weapon slot, reload, next weapon, the PDA...
@@ -84,6 +97,9 @@ void	IOS_Skip( void );					// skip the cinematic or the story intro
 void	IOS_ConsoleText( const char *text );	// typed into the console (UTF-8)
 void	IOS_ConsoleKey( int key );			// IOSTOUCH_KEY_*, into the console
 void	IOS_CloseConsole( void );
+int		IOS_GetWeapons( iosTouchWeapon_t *out, int max, int *current );	// the weapon wheel's slots, in the game's order
+void	IOS_PickWeapon( int slot );			// switch to it
+void	IOS_HoldGame( int hold );			// the game holds still while the wheel is open
 
 #ifdef __cplusplus
 }

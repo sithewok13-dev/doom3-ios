@@ -6429,6 +6429,29 @@ void idPlayer::Think( void ) {
 	// for the touch controls: hidden while the PDA is open and in cinematics
 	if ( entityNumber == gameLocal.localClientNum ) {
 		IOS_GameReport( objectiveSystemOpen, gameLocal.inCinematic );
+
+		// the weapon wheel: what it picked, and what it shows
+		int pick = IOS_TakeWeaponPick();
+		if ( pick >= 0 ) {
+			SelectWeapon( pick, false );
+		}
+		IOS_WeaponsBegin( idealWeapon );
+		for ( int w = 0; w < MAX_WEAPONS; w++ ) {
+			const char *weap = spawnArgs.GetString( va( "def_weapon%d", w ) );
+			if ( !weap[ 0 ] || !spawnArgs.GetBool( va( "weapon%d_cycle", w ) ) ) {
+				continue;
+			}
+			const idDeclEntityDef *decl = gameLocal.FindEntityDef( weap, false );
+			if ( !decl ) {
+				continue;
+			}
+			bool owned = ( inventory.weapons & ( 1 << w ) ) != 0;
+			bool selectable = owned && ( inventory.HasAmmo( weap ) || spawnArgs.GetBool( va( "weapon%d_allowempty", w ) ) );
+			ammo_t ammoType = inventory.AmmoIndexForAmmoClass( decl->dict.GetString( "ammoType" ) );
+			int ammo = ( owned && ammoType > 0 ) ? inventory.ammo[ ammoType ] : -1;
+			const char *name = common->GetLanguageDict()->GetString( decl->dict.GetString( "inv_name", weap ) );
+			IOS_WeaponSlot( w, weap, name, owned, selectable, ammo );
+		}
 	}
 #endif
 }
@@ -6440,6 +6463,14 @@ idPlayer::RouteGuiMouse
 */
 void idPlayer::RouteGuiMouse( idUserInterface *gui ) {
 	sysEvent_t ev;
+
+#ifdef D3_IOS
+	// iOS: a finger on the PDA puts its cursor under it
+	float touchX, touchY;
+	if ( gui == objectiveSystem && IOS_GuiTouch( &touchX, &touchY ) ) {
+		gui->SetCursor( touchX, touchY );
+	}
+#endif
 
 	if ( usercmd.mx != oldMouseX || usercmd.my != oldMouseY ) {
 		ev = sys->GenerateMouseMoveEvent( usercmd.mx - oldMouseX, usercmd.my - oldMouseY );

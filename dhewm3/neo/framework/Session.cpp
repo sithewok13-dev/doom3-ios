@@ -36,6 +36,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "renderer/ModelManager.h"
 
 #include "framework/Session_local.h"
+#ifdef D3_IOS
+#include "sys/ios/ios_input.h"
+#endif
 
 #if defined(__AROS__)
 #define CDKEY_FILEPATH CDKEY_FILE
@@ -2785,6 +2788,26 @@ void idSessionLocal::Frame() {
 		lastGameTic = latchedTicNumber;
 		return;
 	}
+
+#ifdef D3_IOS
+	// iOS: the game holds still while the weapon wheel is open, as under a
+	// menu, its sounds paused
+	static bool iosHeld = false;
+	if ( IOS_GameHeld() != iosHeld ) {
+		iosHeld = IOS_GameHeld();
+		if ( sw ) {
+			if ( iosHeld && !sw->IsPaused() ) {
+				sw->Pause();
+			} else if ( !iosHeld && sw->IsPaused() ) {
+				sw->UnPause();
+			}
+		}
+	}
+	if ( iosHeld ) {
+		lastGameTic = latchedTicNumber;
+		return;
+	}
+#endif
 
 	// in message box / GUIFrame, idSessionLocal::Frame is used for GUI interactivity
 	// but we early exit to avoid running game frames

@@ -39,6 +39,19 @@ extern "C" {
 // the local player: whether the PDA is open, whether a cinematic plays
 void	IOS_GameReport( int pdaOpen, int inCinematic );
 
+// The local player's weapons, for the weapon wheel: the weapon wanted
+// (idealWeapon), then each slot NextWeapon goes through, in its order, with
+// its name, whether the player has it and can switch to it, and its ammo
+// (-1: it takes none)
+void	IOS_WeaponsBegin( int current );
+void	IOS_WeaponSlot( int slot, const char *className, const char *name, int owned, int selectable, int ammo );
+// the slot picked on the wheel since the last call, or -1
+int		IOS_TakeWeaponPick( void );
+
+// the PDA: where a finger on it puts the cursor (in the GUI's 640 x 480),
+// if one is down
+int		IOS_GuiTouch( float *x, float *y );
+
 #ifdef __cplusplus
 }
 #endif

@@ -56,6 +56,15 @@ static int numImpulses;
 
 // what the overlay asked for since the last frame, done after it (the
 // overlay's callbacks come in the middle of one, as SDL pumps its events)
+// the local player's weapons, as the game last reported them
+static iosTouchWeapon_t weapons[IOSTOUCH_MAX_WEAPONS];
+static int numWeapons;
+static int currentWeapon = -1;
+static int weaponPick = -1;
+
+// the weapon wheel is open: no game frames run (as under a menu)
+static bool gameHeld;
+
 static bool skipAsked;
 static bool closeConsoleAsked;
 static idList<sysEvent_t> consoleEvents;
@@ -64,6 +73,73 @@ void IOS_GameReport( int pdaOpen, int inCinematic ) {
 	gameReport.time = Sys_Milliseconds();
 	gameReport.pdaOpen = pdaOpen != 0;
 	gameReport.inCinematic = inCinematic != 0;
+}
+
+void IOS_WeaponsBegin( int current ) {
+	numWeapons = 0;
+	currentWeapon = current;
+}
+
+void IOS_WeaponSlot( int slot, const char *className, const char *name, int owned, int selectable, int ammo ) {
+	if ( numWeapons >= IOSTOUCH_MAX_WEAPONS ) {
+		return;
+	}
+	iosTouchWeapon_t &w = weapons[numWeapons++];
+	w.slot = slot;
+	idStr::Copynz( w.className, className, sizeof( w.className ) );
+	idStr::Copynz( w.name, name, sizeof( w.name ) );
+	w.owned = owned;
+	w.selectable = selectable;
+	w.ammo = ammo;
+}
+
+int IOS_TakeWeaponPick( void ) {
+	int pick = weaponPick;
+	weaponPick = -1;
+	return pick;
+}
+
+int IOS_GetWeapons( iosTouchWeapon_t *out, int max, int *current ) {
+	int n = Min( numWeapons, max );
+	memcpy( out, weapons, n * sizeof( weapons[0] ) );
+	*current = currentWeapon;
+	return n;
+}
+
+void IOS_PickWeapon( int slot ) {
+	weaponPick = slot;
+}
+
+void IOS_HoldGame( int hold ) {
+	gameHeld = hold != 0;
+}
+
+bool IOS_GameHeld( void ) {
+	return gameHeld;
+}
+
+/*
+================
+IOS_GuiTouch
+
+Where a finger on the PDA is, in its 640 x 480: the PDA is drawn 4:3 in the
+middle of the screen (r_scaleMenusTo43), as the menus are.
+================
+*/
+int IOS_GuiTouch( float *x, float *y ) {
+	float px, py, w, h;
+	if ( !IOSTouch_GuiTouch( &px, &py, &w, &h ) || w <= 0.0f || h <= 0.0f ) {
+		return 0;
+	}
+	float w43 = w, h43 = h;
+	if ( w * 3.0f > h * 4.0f ) {
+		w43 = h * 4.0f / 3.0f;
+	} else {
+		h43 = w * 3.0f / 4.0f;
+	}
+	*x = idMath::ClampFloat( 0.0f, (float)SCREEN_WIDTH, ( px - ( w - w43 ) * 0.5f ) * SCREEN_WIDTH / w43 );
+	*y = idMath::ClampFloat( 0.0f, (float)SCREEN_HEIGHT, ( py - ( h - h43 ) * 0.5f ) * SCREEN_HEIGHT / h43 );
+	return 1;
 }
 
 void IOS_Impulse( int impulse ) {
@@ -181,8 +257,9 @@ static void IOS_DoAsked( void ) {
 IOS_TouchFrame
 
 Once a frame: shows the touch controls in play, a tap to skip over
-cinematics and the story intro, the console's own buttons over the console,
-and nothing wherever a finger is the mouse (menus, the PDA).
+cinematics and the story intro, the PDA's own close button and touches over
+the PDA, the console's own buttons over the console, and nothing in the
+menus, where a finger is the mouse.
 ================
 */
 void IOS_TouchFrame( void ) {
@@ -197,9 +274,15 @@ void IOS_TouchFrame( void ) {
 	} else if ( sessLocal.mapSpawned && sessLocal.guiActive == NULL ) {
 		if ( gameFresh && gameReport.inCinematic ) {
 			mode = IOSTOUCH_MODE_SKIP;
-		} else if ( !( gameFresh && gameReport.pdaOpen ) ) {
+		} else if ( gameFresh && gameReport.pdaOpen ) {
+			mode = IOSTOUCH_MODE_PDA;
+		} else {
 			mode = IOSTOUCH_MODE_GAMEPLAY;
 		}
+	}
+	if ( mode != IOSTOUCH_MODE_GAMEPLAY ) {
+		// (the wheel closes with the controls)
+		gameHeld = false;
 	}
 	IOSTouch_Frame( mode );
 }

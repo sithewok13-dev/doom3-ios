@@ -32,5 +32,6 @@ class usercmd_t;
 
 void	IOS_TouchFrame( void );
 void	IOS_AddTouchToUsercmd( usercmd_t &cmd, idVec3 &viewangles );
+bool	IOS_GameHeld( void );	// the game holds still: the weapon wheel is open
 
 #endif /* !__IOS_INPUT_H__ */
