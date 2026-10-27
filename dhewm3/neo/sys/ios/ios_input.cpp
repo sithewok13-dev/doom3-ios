@@ -76,6 +76,9 @@ static bool gameHeld;
 // a tap asked the tip or objective showing to go
 static bool dismissAsked;
 
+// the menu over a game asked to go, back to the game
+static bool resumeAsked;
+
 // the cheat button, and the cheats as the game last reported them
 static int cheatWanted;
 static int cheatSerial;
@@ -221,6 +224,23 @@ void IOS_Connect( const char *address ) {
 	if ( adr.Length() > 0 && adr.Find( ';' ) < 0 && adr.Find( '"' ) < 0 ) {
 		IOS_Command( va( "connect %s", adr.c_str() ) );
 	}
+}
+
+intptr_t IOS_MenuTextField( void ) {
+	return (intptr_t)IOS_GuiTextField( sessLocal.guiActive );
+}
+
+int IOS_MenuServerList( void ) {
+	return sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiMainMenu
+		&& IOS_GuiListShown( sessLocal.guiMainMenu, "serverList" );
+}
+
+int IOS_MenuOverGame( void ) {
+	return sessLocal.mapSpawned && sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiMainMenu;
+}
+
+void IOS_ResumeGame( void ) {
+	resumeAsked = true;
 }
 
 void IOS_MenuBackspace( void ) {
@@ -391,51 +411,46 @@ int IOS_GetLevels( iosTouchLevel_t *out, int max ) {
 
 /*
 ================
-IOS_GetCheatSounds
+IOS_PlayCheatSound
 
-DOOM 3's own sounds that might do for switching cheat mode on: the sound
-shaders whose names have these in them, each word's in turn (at most
-CHEAT_SOUNDS_EACH of each)
+Cheat mode going on: Betruger's laugh, the sound shader the player picked
+("betruger laugh 01" in its list, with its underscores shown as spaces), from
+the player's own DOOM 3 files -- found by its name, whatever is round it
+(failing that, his first laugh)
 ================
 */
-static const char * const cheatSoundWords[] = { "betruger", "laugh", "hellknight", "cyberdemon", "soulcube", "berserk" };
-static const int CHEAT_SOUNDS_EACH = 14;
-
-int IOS_GetCheatSounds( char names[][64], int max ) {
-	int n = 0;
-	int num = declManager->GetNumDecls( DECL_SOUND );
-	for ( int w = 0; w < (int)( sizeof( cheatSoundWords ) / sizeof( cheatSoundWords[0] ) ); w++ ) {
-		int each = 0;
-		for ( int i = 0; i < num && n < max && each < CHEAT_SOUNDS_EACH; i++ ) {
+void IOS_PlayCheatSound( void ) {
+	static idStr found;
+	static bool looked;
+	if ( !looked ) {
+		looked = true;
+		idStr fallback;
+		int num = declManager->GetNumDecls( DECL_SOUND );
+		for ( int i = 0; i < num; i++ ) {
 			const idDecl *decl = declManager->DeclByIndex( DECL_SOUND, i, false );
-			if ( !decl || idStr::FindText( decl->GetName(), cheatSoundWords[w], false ) < 0 ) {
+			if ( !decl ) {
 				continue;
 			}
-			bool known = false;
-			for ( int j = 0; j < n && !known; j++ ) {
-				known = idStr::Icmp( names[j], decl->GetName() ) == 0;
+			idStr name = decl->GetName();
+			name.Replace( "_", " " );
+			if ( name.Find( "betruger", false ) < 0 || name.Find( "laugh", false ) < 0 ) {
+				continue;
 			}
-			if ( !known ) {
-				idStr::Copynz( names[n++], decl->GetName(), 64 );
-				each++;
+			if ( name.Find( "betruger laugh 01", false ) >= 0 ) {
+				found = decl->GetName();
+				break;
+			}
+			if ( fallback.Length() == 0 ) {
+				fallback = decl->GetName();
 			}
 		}
+		if ( found.Length() == 0 ) {
+			found = fallback;
+		}
 	}
-	return n;
-}
-
-void IOS_PlaySound( const char *name ) {
 	idSoundWorld *world = soundSystem->GetPlayingSoundWorld();
-	if ( world && name && name[0] ) {
-		world->PlayShaderDirectly( name );
-	}
-}
-
-void IOS_TrySounds( int on ) {
-	if ( on ) {
-		soundSystem->SetPlayingSoundWorld( sessLocal.menuSoundWorld );
-	} else if ( sessLocal.guiActive == NULL && sessLocal.mapSpawned && session->sw ) {
-		soundSystem->SetPlayingSoundWorld( session->sw );
+	if ( world && found.Length() > 0 ) {
+		world->PlayShaderDirectly( found );
 	}
 }
 
@@ -646,6 +661,13 @@ static void IOS_DoAsked( void ) {
 		}
 	}
 	consoleEvents.Clear();
+
+	if ( resumeAsked ) {
+		resumeAsked = false;
+		if ( IOS_MenuOverGame() ) {
+			sessLocal.ExitMenu();
+		}
+	}
 
 	if ( skipAsked ) {
 		skipAsked = false;

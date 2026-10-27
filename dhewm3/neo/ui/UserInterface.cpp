@@ -899,3 +899,23 @@ void IOS_ScrollGuiAt( idUserInterface *gui, float x, float y, float lines ) {
 	}
 }
 #endif
+
+#ifdef D3_IOS
+/*
+================
+IOS_GuiTextField, IOS_GuiListShown
+
+iOS: the menus' text field with the focus (the keyboard comes up for it),
+and whether a list is showing (the multiplayer games' list: JOIN)
+================
+*/
+void *IOS_GuiTextField( idUserInterface *gui ) {
+	idWindow *desktop = gui ? static_cast<idUserInterfaceLocal *>( gui )->GetDesktop() : NULL;
+	return desktop ? desktop->IOS_FocusedTextField() : NULL;
+}
+
+bool IOS_GuiListShown( idUserInterface *gui, const char *listName ) {
+	idWindow *desktop = gui ? static_cast<idUserInterfaceLocal *>( gui )->GetDesktop() : NULL;
+	return desktop && desktop->IOS_ListShown( listName );
+}
+#endif

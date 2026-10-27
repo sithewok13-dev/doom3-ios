@@ -2467,6 +2467,11 @@ void idCommonLocal::PrintLoadingMessage( const char *msg ) {
 	if ( !( msg && *msg ) ) {
 		return;
 	}
+#ifdef D3_IOS
+	// iOS: the screen stays black from launch to the intro videos; the splash
+	// ("Initializing menus...") would only flash up for a frame
+	return;
+#endif
 	renderSystem->BeginFrame( renderSystem->GetScreenWidth(), renderSystem->GetScreenHeight() );
 	renderSystem->DrawStretchPic( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1, 1, declManager->FindMaterial( "splashScreen" ) );
 	int len = strlen( msg );

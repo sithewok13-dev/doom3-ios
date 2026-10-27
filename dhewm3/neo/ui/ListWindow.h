@@ -92,6 +92,11 @@ private:
 	idSliderWindow*		scroller;
 	idList<int>			currentSel;
 	idStr				listName;
+#ifdef D3_IOS
+public:
+	const char *		IOS_ListName() const { return listName.c_str(); }
+private:
+#endif
 
 	int					clickTime;
 

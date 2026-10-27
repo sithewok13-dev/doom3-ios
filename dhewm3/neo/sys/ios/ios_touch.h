@@ -118,6 +118,13 @@ int		IOS_Multiplayer( void );			// a multiplayer game (no pausing, cheats or Act
 void	IOS_MenuText( const char *text );	// typed into a menu's text field (UTF-8; "\n" Enter)
 void	IOS_MenuBackspace( void );
 void	IOS_Connect( const char *address );	// join the game there (JOIN: Tailscale, or any address)
+// The menus: the text field with the focus (0: none; another number,
+// another field); the multiplayer games' list showing (JOIN there); the
+// menu over a game in play, and back to it
+intptr_t IOS_MenuTextField( void );
+int		IOS_MenuServerList( void );
+int		IOS_MenuOverGame( void );
+void	IOS_ResumeGame( void );
 
 // The levels of the game running (for the cheat's LEVEL), in its order
 #define IOSTOUCH_MAX_LEVELS 64
@@ -128,13 +135,9 @@ typedef struct {
 int		IOS_GetLevels( iosTouchLevel_t *out, int max );
 void	IOS_GoToLevel( const char *path );
 
-// The cheat's sound: DOOM 3's own (the player's game files), the ones to
-// pick from found by their names; played on whatever plays now, or (while
-// they're being tried, the game held) on the menus' sounds
-#define IOSTOUCH_MAX_SOUNDS 80
-int		IOS_GetCheatSounds( char names[][64], int max );
-void	IOS_PlaySound( const char *name );
-void	IOS_TrySounds( int on );
+// Cheat mode going on: its sound, Betruger's laugh, from the player's own
+// DOOM 3 files
+void	IOS_PlayCheatSound( void );
 
 #ifdef __cplusplus
 }

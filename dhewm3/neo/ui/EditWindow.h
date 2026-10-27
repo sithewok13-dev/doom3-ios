@@ -76,6 +76,11 @@ private:
 	int					cvarMax;
 	bool				wrap;
 	bool				readonly;
+#ifdef D3_IOS
+public:
+	bool				IOS_ReadOnly() const { return readonly; }
+private:
+#endif
 	bool				numeric;
 	idStr				sourceFile;
 	idSliderWindow *	scroller;

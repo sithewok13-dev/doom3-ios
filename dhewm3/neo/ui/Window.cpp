@@ -822,6 +822,43 @@ void idWindow::IOS_PlaceObjective() {
 
 /*
 ================
+idWindow::IOS_FocusedTextField
+================
+*/
+idWindow *idWindow::IOS_FocusedTextField() {
+	if ( !focusedChild || !focusedChild->visible ) {
+		return NULL;
+	}
+	idEditWindow *edit = dynamic_cast<idEditWindow *>( focusedChild );
+	if ( edit && !edit->IOS_ReadOnly() ) {
+		return edit;
+	}
+	return focusedChild->IOS_FocusedTextField();
+}
+
+/*
+================
+idWindow::IOS_ListShown
+================
+*/
+bool idWindow::IOS_ListShown( const char *name ) {
+	if ( !visible ) {
+		return false;
+	}
+	idListWindow *list = dynamic_cast<idListWindow *>( this );
+	if ( list && idStr::Icmp( list->IOS_ListName(), name ) == 0 ) {
+		return true;
+	}
+	for ( int i = 0; i < children.Num(); i++ ) {
+		if ( children[i]->IOS_ListShown( name ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/*
+================
 idWindow::IOS_ScrollAt
 
 The deepest window under x, y with a scroll bar (an edit window's text, a

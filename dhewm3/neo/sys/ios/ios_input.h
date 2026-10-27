@@ -37,5 +37,7 @@ bool	IOS_GameHeld( void );	// the game holds still: the weapon wheel is open
 // (ui/Window.cpp) the text or list under x, y in gui scrolled by lines
 class idUserInterface;
 void	IOS_ScrollGuiAt( idUserInterface *gui, float x, float y, float lines );
+void *	IOS_GuiTextField( idUserInterface *gui );
+bool	IOS_GuiListShown( idUserInterface *gui, const char *listName );
 
 #endif /* !__IOS_INPUT_H__ */

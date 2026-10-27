@@ -186,6 +186,10 @@ public:
 	// iOS: a finger dragged on the window under x, y (the PDA's text and
 	// lists): scrolled by lines, if it has a scroll bar
 	bool			IOS_ScrollAt( float x, float y, float lines );
+	// iOS: the text field (an edit window, not read-only) with the focus, if
+	// any; whether the list called listName is showing
+	idWindow *		IOS_FocusedTextField();
+	bool			IOS_ListShown( const char *listName );
 #endif
 
 	enum {

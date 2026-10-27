@@ -30,8 +30,7 @@
  * - MENU: a tap opens the game's menu; held IOSTOUCH_MENU_HOLD it opens its
  *   tray: GYRO (a tap switches it off or back on; held, its MODE and SENS),
  *   RUN (the run marker's double chevron; lit, Always Run), FPS, CHEAT
- *   (CHEAT shown or not: shown, cheat mode goes on; held, the sound cheat
- *   mode makes going on, picked from DOOM 3's own), LEVEL (in cheat mode)
+ *   (CHEAT shown or not: shown, cheat mode goes on), LEVEL (in cheat mode)
  *   and the keyboard (the console).
  * - Gyro aiming, OFF unless switched on: TOUCH aims while a thumb is down on
  *   the stick, the look area or a button that looks; ALWAYS aims always.
@@ -40,10 +39,12 @@
  *   drag scrolls the text or list under it; a close button in the corner.
  * - In play, a tap on the screen (not a button) puts away the tip or the
  *   objective showing.
- * - Over the menus: a keyboard button in the top corner, for the text
- *   fields (the multiplayer menus' names); typing goes in as a keyboard's.
- *   Beside it JOIN: a game joined by its address (over the internet, with
- *   the Tailscale app on each phone), this phone's own addresses shown.
+ * - Over the menus: the keyboard comes up for a text field with the focus
+ *   (the multiplayer menus' names; Enter puts it away), its typing going in
+ *   as a keyboard's. Over the multiplayer games' list, JOIN in the top
+ *   corner: a game joined by its address (over the internet, with the
+ *   Tailscale app on each phone), this phone's own addresses shown. Over a
+ *   game in play, an X where MENU is, back to the game.
  * - In a multiplayer game PDA is SCORES (held), and CHEAT isn't there.
  * - Over the console: the on-screen keyboard (its own, typing straight into
  *   the console) and buttons to hide and show it and to close the console;
@@ -162,8 +163,6 @@
 // CHEAT shown (MENU's tray: off unless switched on), under the Jedi Knight
 // port's key
 #define IOSTOUCH_CHEAT_DEFAULTS_KEY @"iosTouchShowCheat"
-// The sound cheat mode makes going on (a DOOM 3 sound shader's name)
-#define IOSTOUCH_CHEATSOUND_DEFAULTS_KEY @"iosTouchCheatSound"
 
 enum {
 	// the buttons in play
@@ -668,8 +667,12 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 - (BOOL)hasText { return YES; }	// (so backspace always reaches the console)
 - (void)insertText:(NSString*)text
 {
-	if (self.toMenu) IOS_MenuText(text.UTF8String);
-	else IOS_ConsoleText(text.UTF8String);
+	if (self.toMenu) {
+		IOS_MenuText(text.UTF8String);
+		if ([text containsString:@"\n"]) [self resignFirstResponder];	// (Enter: the field's done)
+	} else {
+		IOS_ConsoleText(text.UTF8String);
+	}
 }
 
 - (void)deleteBackward
@@ -714,20 +717,18 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	IOSConsoleKeys*		consoleKeys;
 	UIButton*			pdaCloseButton;	// over the PDA: close it
 	UIButton*			freezeExitButton;	// in Action Freeze: back to the game
-	UIButton*			menuKeysButton;		// over the menus: the keyboard, for their text fields
-	UIButton*			joinButton;			// ...and JOIN, a game by its address
+	UIButton*			joinButton;			// over the multiplayer games' list: JOIN, a game by its address
+	UIButton*			resumeButton;		// over a game in play: back to it
+	intptr_t			menuTextField;		// the menus' text field the keyboard came up for (0: none)
 	CAShapeLayer*		cheatEmblem;	// CHEAT's pentagram in a ring
 	CAShapeLayer*		runTrayChevrons;	// the tray's RUN: the run marker's double chevron
 	UIView*				flash;			// the camera's flash
 	UILabel*			toast;			// "Saved to Photos"
-	// the cheat's lists: its levels (LEVEL), or the sounds to pick its from
+	// the cheat's level list
 	UIView*				levelPanel;
 	UITableView*		levelTable;
-	int					bListSounds;
 	iosTouchLevel_t		aLevels[IOSTOUCH_MAX_LEVELS];
 	int					numLevels;
-	char				aSounds[IOSTOUCH_MAX_SOUNDS][64];
-	int					numSounds;
 	// the weapon wheel: over everything, hidden until opened
 	UIView*				wheelView;		// the game dimmed under it
 	CAShapeLayer*		wheelDisc;
@@ -783,7 +784,7 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 		aButtonViews[i] = l;
 
 		if (b->kind == KIND_HOLDTAP || b->kind == KIND_MENU || b->kind == KIND_WHEEL || b->kind == KIND_CAMERA
-			|| b->kind == KIND_CHEAT || i == BTN_TRAY_GYRO || i == BTN_TRAY_CHEAT || i == BTN_JUMP) {
+			|| b->kind == KIND_CHEAT || i == BTN_TRAY_GYRO || i == BTN_JUMP) {
 			CAShapeLayer* ring = [CAShapeLayer layer];
 			ring.frame = CGRectMake(0, 0, 2 * b->radius, 2 * b->radius);
 			ring.path = [UIBezierPath bezierPathWithArcCenter:CGPointMake(b->radius, b->radius) radius:b->radius - 2.0
@@ -906,8 +907,8 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	consoleCloseButton = [self roundButton:@"xmark" action:@selector(consoleCloseTapped)];
 	pdaCloseButton = [self roundButton:@"xmark" action:@selector(pdaCloseTapped)];
 	freezeExitButton = [self roundButton:@"xmark" action:@selector(freezeExitTapped)];
-	menuKeysButton = [self roundButton:@"keyboard" action:@selector(menuKeysTapped)];
 	joinButton = [self roundButton:@"network" action:@selector(joinTapped)];
+	resumeButton = [self roundButton:@"xmark" action:@selector(resumeTapped)];
 	[self makeWheel];
 	[self makeLevelPanel];
 
@@ -996,12 +997,26 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	[vc presentViewController:alert animated:YES completion:nil];
 }
 
-- (void)menuKeysTapped
+- (void)resumeTapped
 {
-	consoleKeys.toMenu = YES;
-	if (consoleKeys.isFirstResponder) [consoleKeys resignFirstResponder];
-	else [consoleKeys becomeFirstResponder];
+	IOS_ResumeGame();
 	[tick selectionChanged];
+}
+
+// Each frame over the menus: the keyboard up while a text field has the
+// focus (once for each field: Enter puts it away), JOIN over the
+// multiplayer games' list, the X over a game in play
+- (void)updateMenuButtons
+{
+	intptr_t field = IOS_MenuTextField();
+	if (field != menuTextField) {
+		menuTextField = field;
+		consoleKeys.toMenu = YES;
+		if (field) [consoleKeys becomeFirstResponder];
+		else [consoleKeys resignFirstResponder];
+	}
+	resumeButton.hidden = !IOS_MenuOverGame();
+	joinButton.hidden = !resumeButton.hidden || !IOS_MenuServerList();
 }
 
 - (void)freezeExitTapped
@@ -1029,7 +1044,7 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 {
 	UIView* v = [super hitTest:p withEvent:event];
 	if (iosTouch_mode == IOSTOUCH_MODE_CONSOLE && v != consoleKeysButton && v != consoleCloseButton) return nil;
-	if (iosTouch_mode == IOSTOUCH_MODE_MENU && v != menuKeysButton && v != joinButton) return nil;
+	if (iosTouch_mode == IOSTOUCH_MODE_MENU && v != joinButton && v != resumeButton) return nil;
 	return v;
 }
 
@@ -1085,8 +1100,8 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	consoleKeysButton.center = aCentres[BTN_QLOAD];
 	pdaCloseButton.center = aCentres[BTN_MENU];
 	freezeExitButton.center = aCentres[BTN_MENU];
-	menuKeysButton.center = aCentres[BTN_MENU];
-	joinButton.center = aCentres[BTN_QLOAD];
+	resumeButton.center = aCentres[BTN_MENU];
+	joinButton.center = aCentres[BTN_MENU];
 	if (iosTouch_bWheelOpen) [self layoutWheel];
 }
 
@@ -1561,7 +1576,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		return;
 	}
 	if (iosTouch_aButtons[b].kind == KIND_TRAY) {
-		if ((b == BTN_TRAY_GYRO || b == BTN_TRAY_CHEAT) && s->bDone) return;	// (held: its options opened)
+		if (b == BTN_TRAY_GYRO && s->bDone) return;	// (held: its options opened)
 		if (s->bInside) [self useTrayButton:b];
 	}
 }
@@ -1582,11 +1597,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		iosTouch_bShowCheat = !iosTouch_bShowCheat;
 		[[NSUserDefaults standardUserDefaults] setBool:iosTouch_bShowCheat forKey:IOSTOUCH_CHEAT_DEFAULTS_KEY];
 		IOS_SetCheat(iosTouch_bShowCheat);
-		if (iosTouch_bShowCheat) {
-			[self cheatSwitchedOn];
-			if (![[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY])
-				[self showToast:@"Cheats on. Hold CHEAT here to pick a sound"];
-		}
+		if (iosTouch_bShowCheat) [self cheatSwitchedOn];
 		[self showButtons];
 		break;
 	case BTN_TRAY_FPS:
@@ -1631,7 +1642,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		if (!s->touch || s->role != ROLE_BUTTON || s->bDone) continue;
 		int b = s->button;
 		double hold = (iosTouch_aButtons[b].kind == KIND_HOLDTAP) ? IOSTOUCH_QUICKSAVE_HOLD
-					: (b == BTN_MENU || b == BTN_TRAY_GYRO || b == BTN_TRAY_CHEAT) ? IOSTOUCH_MENU_HOLD
+					: (b == BTN_MENU || b == BTN_TRAY_GYRO) ? IOSTOUCH_MENU_HOLD
 					: (b == BTN_NEXTWPN) ? IOSTOUCH_WHEEL_HOLD
 					: (b == BTN_CAMERA) ? IOSTOUCH_SELFIE_HOLD
 					: (b == BTN_CHEAT) ? IOSTOUCH_CHEAT_HOLD
@@ -1661,7 +1672,6 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			else [thump impactOccurred];
 			break;
 		case BTN_JUMP: IOS_ToggleFly(); [thump impactOccurred]; break;	// in cheat mode: FLY
-		case BTN_TRAY_CHEAT: [self setTrayOpen:0]; [self openSounds]; break;	// held: its sound
 		}
 	}
 	[CATransaction begin];
@@ -2141,7 +2151,8 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		skipLabel.hidden = (mode != IOSTOUCH_MODE_SKIP);
 		consoleKeysButton.hidden = consoleCloseButton.hidden = (mode != IOSTOUCH_MODE_CONSOLE);
 		pdaCloseButton.hidden = (mode != IOSTOUCH_MODE_PDA);
-		menuKeysButton.hidden = joinButton.hidden = (mode != IOSTOUCH_MODE_MENU);
+		joinButton.hidden = resumeButton.hidden = YES;	// (over the menus: updateMenuButtons)
+		menuTextField = 0;
 		// the keyboard comes up with the console, and goes with it
 		if (mode == IOSTOUCH_MODE_CONSOLE) {
 			consoleKeys.toMenu = NO;
@@ -2152,6 +2163,9 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	}
 	if (mode == IOSTOUCH_MODE_GAMEPLAY) {
 		[self updateHolds];
+	}
+	if (mode == IOSTOUCH_MODE_MENU) {
+		[self updateMenuButtons];
 	}
 	if (IOS_Multiplayer() != iosTouch_bMultiplayer) {
 		iosTouch_bMultiplayer = IOS_Multiplayer();
@@ -2190,9 +2204,7 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 - (void)cheatSwitchedOn
 {
 	[thump impactOccurred];
-	// (none until the player has heard and picked one)
-	NSString* name = [[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY];
-	if (name.length) IOS_PlaySound(name.UTF8String);
+	IOS_PlayCheatSound();	// (Betruger's laugh)
 }
 
 // CHEAT red while cheat mode is on; JUMP says FLY under it then (lit while
@@ -2268,8 +2280,6 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	title.text = @"LEVEL";
 	title.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
 	title.textColor = IOSTOUCH_CHEAT_RED(1.0);
-	title.adjustsFontSizeToFitWidth = YES;
-	title.minimumScaleFactor = 0.7;
 	title.tag = 1;
 	[levelPanel addSubview:title];
 	UIButton* close = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -2296,26 +2306,7 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		return;
 	}
 	[self releaseAll];
-	bListSounds = 0;
-	((UILabel*)[levelPanel viewWithTag:1]).text = @"LEVEL";
 	[self showList];
-}
-
-// DOOM 3's sounds that might do for cheat mode going on, each played as it's
-// tapped and picked (ticked); the game holds still meanwhile, the sounds
-// played over the menus'
-- (void)openSounds
-{
-	numSounds = IOS_GetCheatSounds(aSounds, IOSTOUCH_MAX_SOUNDS);
-	if (numSounds <= 0) {
-		[self showToast:@"No DOOM 3 sounds found"];
-		return;
-	}
-	[self releaseAll];
-	bListSounds = 1;
-	((UILabel*)[levelPanel viewWithTag:1]).text = @"CHEAT SOUND: TAP TO HEAR";
-	[self showList];
-	IOS_TrySounds(1);
 }
 
 - (void)showList
@@ -2325,7 +2316,6 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	CGFloat w = fmin(420.0, b.size.width - in.left - in.right - 40.0);
 	CGFloat h = b.size.height - fmax(in.top, 8.0) - fmax(in.bottom, 8.0) - 16.0;
 	levelPanel.frame = CGRectMake((b.size.width - w) * 0.5, (b.size.height - h) * 0.5, w, h);
-	[levelPanel viewWithTag:1].frame = CGRectMake(16, 10, w - 70, 24);
 	[levelPanel viewWithTag:2].frame = CGRectMake(w - 44, 4, 40, 36);
 	levelTable.frame = CGRectMake(0, 44, w, h - 44);
 	[levelTable reloadData];
@@ -2338,13 +2328,12 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 {
 	if (levelPanel.hidden) return;
 	levelPanel.hidden = YES;
-	if (bListSounds) IOS_TrySounds(0);
 	IOS_HoldGame(0);
 }
 
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section
 {
-	return bListSounds ? numSounds : numLevels;
+	return numLevels;
 }
 
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)indexPath
@@ -2358,33 +2347,15 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		cell.detailTextLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.5];
 		cell.detailTextLabel.font = [UIFont systemFontOfSize:11];
 	}
-	if (bListSounds) {
-		NSString* name = [NSString stringWithUTF8String:aSounds[indexPath.row]];
-		NSString* picked = [[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY];
-		cell.textLabel.text = [name stringByReplacingOccurrencesOfString:@"_" withString:@" "];
-		cell.detailTextLabel.text = nil;
-		cell.accessoryType = [name isEqualToString:picked] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
-		cell.tintColor = IOSTOUCH_CHEAT_RED(1.0);
-		return cell;
-	}
 	const iosTouchLevel_t* l = &aLevels[indexPath.row];
 	cell.textLabel.text = [NSString stringWithFormat:@"%d. %s", (int)indexPath.row + 1, l->name];
 	cell.detailTextLabel.text = [NSString stringWithUTF8String:l->path];
-	cell.accessoryType = UITableViewCellAccessoryNone;
 	return cell;
 }
 
 - (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)indexPath
 {
 	[tableView deselectRowAtIndexPath:indexPath animated:NO];
-	if (bListSounds) {
-		// heard, and picked
-		IOS_PlaySound(aSounds[indexPath.row]);
-		[[NSUserDefaults standardUserDefaults] setObject:[NSString stringWithUTF8String:aSounds[indexPath.row]]
-												  forKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY];
-		[tableView reloadData];
-		return;
-	}
 	IOS_GoToLevel(aLevels[indexPath.row].path);
 	[self closeLevels];
 }
