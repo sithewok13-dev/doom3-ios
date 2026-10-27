@@ -63,6 +63,9 @@ public:
   // the cached data is no longer valid
   void PurgeAll();
 
+  // after GL code outside the vertex cache bound buffers of its own
+  void ForgetBoundBuffers() { currentBoundVBO = -1; currentBoundVBO_Index = -1; }
+
   // Tries to allocate space for the given data in fast vertex
   // memory, and copies it over.
   // Alloc does NOT do a touch, which allows purging of things

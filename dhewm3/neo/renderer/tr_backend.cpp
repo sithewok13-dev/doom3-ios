@@ -404,6 +404,12 @@ const void	RB_SwapBuffers( const void *data ) {
 	}
 #endif
 
+#ifdef D3_GLES2
+	// no hardware gamma on OpenGL ES: r_gamma and r_brightness are applied
+	// to the finished frame instead
+	RB_GLSL_ApplyGammaBrightness();
+#endif
+
 	// force a gl sync if requested
 	if ( r_finish.GetBool() ) {
 		qglFinish();

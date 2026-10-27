@@ -2444,3 +2444,120 @@ void RB_GLSL_PrepareShaders(void) {
   GL_DisableVertexAttribArray(ATTR_TANGENT);
   GL_DisableVertexAttribArray(ATTR_BITANGENT);
 }
+/*
+=================
+RB_GLSL_ApplyGammaBrightness
+
+OpenGL ES has no hardware gamma, so r_brightness and r_gamma are applied to
+the finished frame, just before it's shown: copied to a texture, then drawn
+back over the screen as pow( clamp( color * r_brightness ), 1 / r_gamma ),
+which is what the hardware gamma ramp did for the original game (dhewm3's
+r_gammaInShader uses the same formula in its desktop shaders). Nothing is
+done at the defaults (both 1).
+=================
+*/
+static const char * const gammaShaderVP = R"(
+#version 100
+precision highp float;
+
+attribute vec4 attr_Vertex;
+varying vec2 var_TexCoord;
+
+void main(void)
+{
+  var_TexCoord = attr_Vertex.xy * 0.5 + 0.5;
+  gl_Position = vec4(attr_Vertex.xy, 0.0, 1.0);
+}
+)";
+
+static const char * const gammaShaderFP = R"(
+#version 100
+precision mediump float;
+
+uniform sampler2D u_frame;
+uniform vec4 u_brightnessGamma; // xyz: r_brightness, w: 1 / r_gamma
+varying vec2 var_TexCoord;
+
+void main(void)
+{
+  vec3 color = clamp(texture2D(u_frame, var_TexCoord).rgb * u_brightnessGamma.xyz, 0.0, 1.0);
+  gl_FragColor = vec4(pow(color, vec3(u_brightnessGamma.w)), 1.0);
+}
+)";
+
+void RB_GLSL_ApplyGammaBrightness(void) {
+  static GLuint program = 0;
+  static GLint frameLocation, brightnessGammaLocation;
+  static GLuint frameTexture = 0;
+  static int frameWidth = 0, frameHeight = 0;
+  static const GLfloat quad[] = { -1, -1,  1, -1,  -1, 1,  1, 1 };
+
+  const float brightness = r_brightness.GetFloat();
+  const float gamma = r_gamma.GetFloat();
+  if ( brightness == 1.0f && gamma == 1.0f ) {
+    return;
+  }
+
+  if ( !program ) {
+    shaderProgram_t shader;
+    memset(&shader, 0, sizeof(shader));
+    R_LoadGLSLShader(gammaShaderVP, &shader, GL_VERTEX_SHADER);
+    R_LoadGLSLShader(gammaShaderFP, &shader, GL_FRAGMENT_SHADER);
+    if ( !R_LinkGLSLShader(&shader, "gammaBrightness") ) {
+      return;
+    }
+    program = shader.program;
+    frameLocation = qglGetUniformLocation(program, "u_frame");
+    brightnessGammaLocation = qglGetUniformLocation(program, "u_brightnessGamma");
+    qglGenTextures(1, &frameTexture);
+  }
+
+  const int width = glConfig.vidWidth;
+  const int height = glConfig.vidHeight;
+
+  // copy the finished frame
+  GL_SelectTexture(0);
+  qglBindTexture(GL_TEXTURE_2D, frameTexture);
+  if ( width != frameWidth || height != frameHeight ) {
+    qglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    qglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    qglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    qglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    qglCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, width, height, 0);
+    frameWidth = width;
+    frameHeight = height;
+  } else {
+    qglCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+  }
+
+  // draw it back over the whole screen, with every test off
+  static const GLenum caps[] = { GL_SCISSOR_TEST, GL_BLEND, GL_DEPTH_TEST, GL_STENCIL_TEST, GL_CULL_FACE };
+  GLboolean wasEnabled[sizeof(caps) / sizeof(caps[0])];
+  for ( size_t i = 0; i < sizeof(caps) / sizeof(caps[0]); i++ ) {
+    wasEnabled[i] = qglIsEnabled(caps[i]);
+    qglDisable(caps[i]);
+  }
+  qglViewport(0, 0, width, height);
+  qglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+  qglUseProgram(program);
+  qglUniform1i(frameLocation, 0);
+  qglUniform4f(brightnessGammaLocation, brightness, brightness, brightness, 1.0f / gamma);
+
+  qglBindBuffer(GL_ARRAY_BUFFER, 0);
+  qglEnableVertexAttribArray(ATTR_VERTEX);
+  qglVertexAttribPointer(ATTR_VERTEX, 2, GL_FLOAT, GL_FALSE, 0, quad);
+  qglDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+  // put the tests back as they were; the renderer's own state caches start
+  // again from scratch
+  for ( size_t i = 0; i < sizeof(caps) / sizeof(caps[0]); i++ ) {
+    if ( wasEnabled[i] ) {
+      qglEnable(caps[i]);
+    }
+  }
+  qglUseProgram(0);
+  backEnd.glState.currentProgram = NULL;
+  backEnd.glState.forceGlState = true;
+  vertexCache.ForgetBoundBuffers();
+}

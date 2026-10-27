@@ -1271,6 +1271,7 @@ void R_ReloadGLSLPrograms_f(const idCmdArgs &args);
 void RB_ShowImages( void );	// r_forceLoadImages; tr_rendertools (gles2_stubs in OpenGL ES builds)
 
 void RB_GLSL_PrepareShaders(void);
+void RB_GLSL_ApplyGammaBrightness(void);	// r_gamma, r_brightness on the finished frame
 void RB_GLSL_FillDepthBuffer(drawSurf_t **drawSurfs, int numDrawSurfs);
 void RB_GLSL_DrawInteractions(void);
 int  RB_GLSL_DrawShaderPasses(drawSurf_t **drawSurfs, int numDrawSurfs);
