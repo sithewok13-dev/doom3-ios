@@ -30,7 +30,8 @@
  * - MENU: a tap opens the game's menu; held IOSTOUCH_MENU_HOLD it opens its
  *   tray: GYRO (a tap switches it off or back on; held, its MODE and SENS),
  *   RUN (the run marker's double chevron; lit, Always Run), FPS, CHEAT
- *   (CHEAT shown or not: shown, cheat mode goes on), LEVEL (in cheat mode)
+ *   (CHEAT shown or not: shown, cheat mode goes on; held, the sound cheat
+ *   mode makes going on, picked from DOOM 3's own), LEVEL (in cheat mode)
  *   and the keyboard (the console).
  * - Gyro aiming, OFF unless switched on: TOUCH aims while a thumb is down on
  *   the stick, the look area or a button that looks; ALWAYS aims always.
@@ -161,6 +162,8 @@
 // CHEAT shown (MENU's tray: off unless switched on), under the Jedi Knight
 // port's key
 #define IOSTOUCH_CHEAT_DEFAULTS_KEY @"iosTouchShowCheat"
+// The sound cheat mode makes going on (a DOOM 3 sound shader's name)
+#define IOSTOUCH_CHEATSOUND_DEFAULTS_KEY @"iosTouchCheatSound"
 
 enum {
 	// the buttons in play
@@ -717,11 +720,14 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	CAShapeLayer*		runTrayChevrons;	// the tray's RUN: the run marker's double chevron
 	UIView*				flash;			// the camera's flash
 	UILabel*			toast;			// "Saved to Photos"
-	// the cheat's level list
+	// the cheat's lists: its levels (LEVEL), or the sounds to pick its from
 	UIView*				levelPanel;
 	UITableView*		levelTable;
+	int					bListSounds;
 	iosTouchLevel_t		aLevels[IOSTOUCH_MAX_LEVELS];
 	int					numLevels;
+	char				aSounds[IOSTOUCH_MAX_SOUNDS][64];
+	int					numSounds;
 	// the weapon wheel: over everything, hidden until opened
 	UIView*				wheelView;		// the game dimmed under it
 	CAShapeLayer*		wheelDisc;
@@ -777,7 +783,7 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 		aButtonViews[i] = l;
 
 		if (b->kind == KIND_HOLDTAP || b->kind == KIND_MENU || b->kind == KIND_WHEEL || b->kind == KIND_CAMERA
-			|| b->kind == KIND_CHEAT || i == BTN_TRAY_GYRO || i == BTN_JUMP) {
+			|| b->kind == KIND_CHEAT || i == BTN_TRAY_GYRO || i == BTN_TRAY_CHEAT || i == BTN_JUMP) {
 			CAShapeLayer* ring = [CAShapeLayer layer];
 			ring.frame = CGRectMake(0, 0, 2 * b->radius, 2 * b->radius);
 			ring.path = [UIBezierPath bezierPathWithArcCenter:CGPointMake(b->radius, b->radius) radius:b->radius - 2.0
@@ -1555,7 +1561,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		return;
 	}
 	if (iosTouch_aButtons[b].kind == KIND_TRAY) {
-		if (b == BTN_TRAY_GYRO && s->bDone) return;	// (held: its options opened)
+		if ((b == BTN_TRAY_GYRO || b == BTN_TRAY_CHEAT) && s->bDone) return;	// (held: its options opened)
 		if (s->bInside) [self useTrayButton:b];
 	}
 }
@@ -1576,7 +1582,10 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		iosTouch_bShowCheat = !iosTouch_bShowCheat;
 		[[NSUserDefaults standardUserDefaults] setBool:iosTouch_bShowCheat forKey:IOSTOUCH_CHEAT_DEFAULTS_KEY];
 		IOS_SetCheat(iosTouch_bShowCheat);
-		if (iosTouch_bShowCheat) [self cheatSwitchedOn];
+		if (iosTouch_bShowCheat) {
+			[self cheatSwitchedOn];
+			[self showToast:@"Cheats on. Hold CHEAT here to pick its sound"];
+		}
 		[self showButtons];
 		break;
 	case BTN_TRAY_FPS:
@@ -1621,7 +1630,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		if (!s->touch || s->role != ROLE_BUTTON || s->bDone) continue;
 		int b = s->button;
 		double hold = (iosTouch_aButtons[b].kind == KIND_HOLDTAP) ? IOSTOUCH_QUICKSAVE_HOLD
-					: (b == BTN_MENU || b == BTN_TRAY_GYRO) ? IOSTOUCH_MENU_HOLD
+					: (b == BTN_MENU || b == BTN_TRAY_GYRO || b == BTN_TRAY_CHEAT) ? IOSTOUCH_MENU_HOLD
 					: (b == BTN_NEXTWPN) ? IOSTOUCH_WHEEL_HOLD
 					: (b == BTN_CAMERA) ? IOSTOUCH_SELFIE_HOLD
 					: (b == BTN_CHEAT) ? IOSTOUCH_CHEAT_HOLD
@@ -1651,6 +1660,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			else [thump impactOccurred];
 			break;
 		case BTN_JUMP: IOS_ToggleFly(); [thump impactOccurred]; break;	// in cheat mode: FLY
+		case BTN_TRAY_CHEAT: [self setTrayOpen:0]; [self openSounds]; break;	// held: its sound
 		}
 	}
 	[CATransaction begin];
@@ -2179,7 +2189,13 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 - (void)cheatSwitchedOn
 {
 	[thump impactOccurred];
-	// (the sound: to be decided)
+	NSString* name = [[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY];
+	if (!name) {
+		// none picked yet: the first of DOOM 3's that will do (Betruger's)
+		char first[1][64];
+		if (IOS_GetCheatSounds(first, 1) > 0) name = [NSString stringWithUTF8String:first[0]];
+	}
+	if (name.length) IOS_PlaySound(name.UTF8String);
 }
 
 // CHEAT red while cheat mode is on; JUMP says FLY under it then (lit while
@@ -2255,6 +2271,8 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	title.text = @"LEVEL";
 	title.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
 	title.textColor = IOSTOUCH_CHEAT_RED(1.0);
+	title.adjustsFontSizeToFitWidth = YES;
+	title.minimumScaleFactor = 0.7;
 	title.tag = 1;
 	[levelPanel addSubview:title];
 	UIButton* close = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -2281,11 +2299,36 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		return;
 	}
 	[self releaseAll];
+	bListSounds = 0;
+	((UILabel*)[levelPanel viewWithTag:1]).text = @"LEVEL";
+	[self showList];
+}
+
+// DOOM 3's sounds that might do for cheat mode going on, each played as it's
+// tapped and picked (ticked); the game holds still meanwhile, the sounds
+// played over the menus'
+- (void)openSounds
+{
+	numSounds = IOS_GetCheatSounds(aSounds, IOSTOUCH_MAX_SOUNDS);
+	if (numSounds <= 0) {
+		[self showToast:@"No DOOM 3 sounds found"];
+		return;
+	}
+	[self releaseAll];
+	bListSounds = 1;
+	((UILabel*)[levelPanel viewWithTag:1]).text = @"CHEAT SOUND: TAP TO HEAR";
+	[self showList];
+	IOS_TrySounds(1);
+}
+
+- (void)showList
+{
 	CGRect b = self.bounds;
 	UIEdgeInsets in = self.safeAreaInsets;
 	CGFloat w = fmin(420.0, b.size.width - in.left - in.right - 40.0);
 	CGFloat h = b.size.height - fmax(in.top, 8.0) - fmax(in.bottom, 8.0) - 16.0;
 	levelPanel.frame = CGRectMake((b.size.width - w) * 0.5, (b.size.height - h) * 0.5, w, h);
+	[levelPanel viewWithTag:1].frame = CGRectMake(16, 10, w - 70, 24);
 	[levelPanel viewWithTag:2].frame = CGRectMake(w - 44, 4, 40, 36);
 	levelTable.frame = CGRectMake(0, 44, w, h - 44);
 	[levelTable reloadData];
@@ -2298,12 +2341,13 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 {
 	if (levelPanel.hidden) return;
 	levelPanel.hidden = YES;
+	if (bListSounds) IOS_TrySounds(0);
 	IOS_HoldGame(0);
 }
 
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section
 {
-	return numLevels;
+	return bListSounds ? numSounds : numLevels;
 }
 
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)indexPath
@@ -2317,15 +2361,34 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		cell.detailTextLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.5];
 		cell.detailTextLabel.font = [UIFont systemFontOfSize:11];
 	}
+	if (bListSounds) {
+		NSString* name = [NSString stringWithUTF8String:aSounds[indexPath.row]];
+		NSString* picked = [[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY];
+		if (!picked && indexPath.row == 0) picked = name;	// (the one used until one is picked)
+		cell.textLabel.text = [name stringByReplacingOccurrencesOfString:@"_" withString:@" "];
+		cell.detailTextLabel.text = nil;
+		cell.accessoryType = [name isEqualToString:picked] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+		cell.tintColor = IOSTOUCH_CHEAT_RED(1.0);
+		return cell;
+	}
 	const iosTouchLevel_t* l = &aLevels[indexPath.row];
 	cell.textLabel.text = [NSString stringWithFormat:@"%d. %s", (int)indexPath.row + 1, l->name];
 	cell.detailTextLabel.text = [NSString stringWithUTF8String:l->path];
+	cell.accessoryType = UITableViewCellAccessoryNone;
 	return cell;
 }
 
 - (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)indexPath
 {
 	[tableView deselectRowAtIndexPath:indexPath animated:NO];
+	if (bListSounds) {
+		// heard, and picked
+		IOS_PlaySound(aSounds[indexPath.row]);
+		[[NSUserDefaults standardUserDefaults] setObject:[NSString stringWithUTF8String:aSounds[indexPath.row]]
+												  forKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY];
+		[tableView reloadData];
+		return;
+	}
 	IOS_GoToLevel(aLevels[indexPath.row].path);
 	[self closeLevels];
 }

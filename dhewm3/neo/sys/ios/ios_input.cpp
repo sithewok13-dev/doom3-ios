@@ -38,6 +38,8 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 #include "framework/async/AsyncNetwork.h"
 #include "ui/UserInterface.h"
 #include "framework/FileSystem.h"
+#include "framework/DeclManager.h"
+#include "sound/sound.h"
 #include "renderer/RenderSystem.h"
 #include "idlib/LangDict.h"
 #include "sys/sys_public.h"
@@ -385,6 +387,56 @@ int IOS_GetLevels( iosTouchLevel_t *out, int max ) {
 		n++;
 	}
 	return n;
+}
+
+/*
+================
+IOS_GetCheatSounds
+
+DOOM 3's own sounds that might do for switching cheat mode on: the sound
+shaders whose names have these in them, each word's in turn (at most
+CHEAT_SOUNDS_EACH of each)
+================
+*/
+static const char * const cheatSoundWords[] = { "betruger", "laugh", "hellknight", "cyberdemon", "soulcube", "berserk" };
+static const int CHEAT_SOUNDS_EACH = 14;
+
+int IOS_GetCheatSounds( char names[][64], int max ) {
+	int n = 0;
+	int num = declManager->GetNumDecls( DECL_SOUND );
+	for ( int w = 0; w < (int)( sizeof( cheatSoundWords ) / sizeof( cheatSoundWords[0] ) ); w++ ) {
+		int each = 0;
+		for ( int i = 0; i < num && n < max && each < CHEAT_SOUNDS_EACH; i++ ) {
+			const idDecl *decl = declManager->DeclByIndex( DECL_SOUND, i, false );
+			if ( !decl || idStr::FindText( decl->GetName(), cheatSoundWords[w], false ) < 0 ) {
+				continue;
+			}
+			bool known = false;
+			for ( int j = 0; j < n && !known; j++ ) {
+				known = idStr::Icmp( names[j], decl->GetName() ) == 0;
+			}
+			if ( !known ) {
+				idStr::Copynz( names[n++], decl->GetName(), 64 );
+				each++;
+			}
+		}
+	}
+	return n;
+}
+
+void IOS_PlaySound( const char *name ) {
+	idSoundWorld *world = soundSystem->GetPlayingSoundWorld();
+	if ( world && name && name[0] ) {
+		world->PlayShaderDirectly( name );
+	}
+}
+
+void IOS_TrySounds( int on ) {
+	if ( on ) {
+		soundSystem->SetPlayingSoundWorld( sessLocal.menuSoundWorld );
+	} else if ( sessLocal.guiActive == NULL && sessLocal.mapSpawned && session->sw ) {
+		soundSystem->SetPlayingSoundWorld( session->sw );
+	}
 }
 
 void IOS_GoToLevel( const char *path ) {

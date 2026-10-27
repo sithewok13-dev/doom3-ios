@@ -128,6 +128,14 @@ typedef struct {
 int		IOS_GetLevels( iosTouchLevel_t *out, int max );
 void	IOS_GoToLevel( const char *path );
 
+// The cheat's sound: DOOM 3's own (the player's game files), the ones to
+// pick from found by their names; played on whatever plays now, or (while
+// they're being tried, the game held) on the menus' sounds
+#define IOSTOUCH_MAX_SOUNDS 80
+int		IOS_GetCheatSounds( char names[][64], int max );
+void	IOS_PlaySound( const char *name );
+void	IOS_TrySounds( int on );
+
 #ifdef __cplusplus
 }
 #endif
