@@ -117,9 +117,6 @@ static void R_PerformanceCounters( void ) {
 		int	m1 = frameData ? frameData->memoryHighwater : 0;
 		common->Printf( "frameData: %i (%i)\n", R_CountFrameData(), m1 );
 	}
-	if ( r_showLightScale.GetBool() ) {
-		common->Printf( "lightScale: %f\n", backEnd.pc.maxLightValue );
-	}
 
 	memset( &tr.pc, 0, sizeof( tr.pc ) );
 	memset( &backEnd.pc, 0, sizeof( backEnd.pc ) );
@@ -250,7 +247,7 @@ static void R_CheckCvars( void ) {
 	if ( r_gammaInShader.IsModified() ) {
 		r_gammaInShader.ClearModified();
 		// reload shaders so they either add or remove the code for setting gamma/brightness in shader
-		R_ReloadARBPrograms_f( idCmdArgs() );
+		R_ReloadGLSLPrograms_f( idCmdArgs() );
 
 		if ( r_gammaInShader.GetBool() ) {
 			common->Printf( "Will apply r_gamma and r_brightness in shaders\n" );
@@ -514,62 +511,6 @@ void idRenderSystemLocal::DrawBigStringExt( int x, int y, const char *string, co
 //======================================================================================
 
 /*
-==================
-SetBackEndRenderer
-
-Check for changes in the back end renderSystem, possibly invalidating cached data
-==================
-*/
-void idRenderSystemLocal::SetBackEndRenderer() {
-	if ( !r_renderer.IsModified() ) {
-		return;
-	}
-
-	bool oldVPstate = backEndRendererHasVertexPrograms;
-
-	backEndRenderer = BE_BAD;
-
-	if ( idStr::Icmp( r_renderer.GetString(), "arb2" ) == 0 ) {
-		if ( glConfig.allowARB2Path ) {
-			backEndRenderer = BE_ARB2;
-		}
-	}
-
-	// fallback
-	if ( backEndRenderer == BE_BAD ) {
-		// choose the best
-		if ( glConfig.allowARB2Path ) {
-			backEndRenderer = BE_ARB2;
-		}
-	}
-
-	backEndRendererHasVertexPrograms = false;
-	backEndRendererMaxLight = 1.0;
-
-	switch( backEndRenderer ) {
-	case BE_ARB2:
-		common->Printf( "using ARB2 renderSystem\n" );
-		backEndRendererHasVertexPrograms = true;
-		backEndRendererMaxLight = 999;
-		break;
-	default:
-		common->FatalError( "SetbackEndRenderer: bad back end" );
-	}
-
-	// clear the vertex cache if we are changing between
-	// using vertex programs and not, because specular and
-	// shadows will be different data
-	if ( oldVPstate != backEndRendererHasVertexPrograms ) {
-		vertexCache.PurgeAll();
-		if ( primaryWorld ) {
-			primaryWorld->FreeInteractions();
-		}
-	}
-
-	r_renderer.ClearModified();
-}
-
-/*
 ====================
 BeginFrame
 ====================
@@ -592,9 +533,6 @@ void idRenderSystemLocal::BeginFrame( int windowWidth, int windowHeight ) {
 			r_useScissor.SetBool( origUseScissor );
 		}
 	} // DG end
-
-	// determine which back end we will use
-	SetBackEndRenderer();
 
 	guiModel->Clear();
 
@@ -647,12 +585,7 @@ void idRenderSystemLocal::BeginFrame( int windowWidth, int windowHeight ) {
 	cmd = (setBufferCommand_t *)R_GetCommandBuffer( sizeof( *cmd ) );
 	cmd->commandId = RC_SET_BUFFER;
 	cmd->frameCount = frameCount;
-
-	if ( r_frontBuffer.GetBool() ) {
-		cmd->buffer = (int)GL_FRONT;
-	} else {
-		cmd->buffer = (int)GL_BACK;
-	}
+	cmd->buffer = (int)GL_BACK;
 }
 
 void idRenderSystemLocal::WriteDemoPics() {
@@ -887,6 +820,7 @@ void idRenderSystemLocal::CaptureRenderToImage( const char *imageName ) {
 	if ( !glConfig.isInitialized ) {
 		return;
 	}
+
 	guiModel->EmitFullScreen();
 	guiModel->Clear();
 
@@ -934,20 +868,21 @@ void idRenderSystemLocal::CaptureRenderToFile( const char *fileName, bool fixAlp
 	guiModel->Clear();
 	R_IssueRenderCommands();
 
-	qglReadBuffer( GL_BACK );
+	// Disabled for OES2
+	//qglReadBuffer( GL_BACK );
 
 	// include extra space for OpenGL padding to word boundaries
-	int	c = ( rc->width + 3 ) * rc->height;
-	byte *data = (byte *)R_StaticAlloc( c * 3 );
+	int	c = ( rc->width + 4 ) * rc->height;
+	byte *data = (byte *)R_StaticAlloc( c * 4 );
 
-	qglReadPixels( rc->x, rc->y, rc->width, rc->height, GL_RGB, GL_UNSIGNED_BYTE, data );
+	qglReadPixels( rc->x, rc->y, rc->width, rc->height, GL_RGBA, GL_UNSIGNED_BYTE, data );
 
 	byte *data2 = (byte *)R_StaticAlloc( c * 4 );
 
 	for ( int i = 0 ; i < c ; i++ ) {
-		data2[ i * 4 ] = data[ i * 3 ];
-		data2[ i * 4 + 1 ] = data[ i * 3 + 1 ];
-		data2[ i * 4 + 2 ] = data[ i * 3 + 2 ];
+		data2[ i * 4 ] = data[ i * 4 ];
+		data2[ i * 4 + 1 ] = data[ i * 4 + 1 ];
+		data2[ i * 4 + 2 ] = data[ i * 4 + 2 ];
 		data2[ i * 4 + 3 ] = 0xff;
 	}
 

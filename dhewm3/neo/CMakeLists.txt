@@ -59,6 +59,7 @@ option(ONATIVE		"Optimize for the host CPU" OFF)
 option(SDL2			"Use SDL2 instead of SDL1.2" ON)
 option(SDL3			"Use SDL3 instead of SDL2 or SDL1.2" OFF)
 option(IMGUI		"Build with Dear ImGui integration - requires SDL2/SDL3 and C++11" ON)
+option(GLES2		"Render with the OpenGL ES 2.0 renderer (draw_gles2) instead of ARB2, as on iOS" OFF)
 option(REPRODUCIBLE_BUILD "Replace __DATE__ and __TIME__ by hardcoded values for reproducible builds" OFF)
 
 option(TRACY		"Build and integrate the Tracy profiler, requires HARDLINK_GAME" OFF)
@@ -230,6 +231,11 @@ endif()
 if(REPRODUCIBLE_BUILD)
 	# don't use __DATE__ and __TIME__ macros so builds are reproducible
 	add_definitions(-DID_REPRODUCIBLE_BUILD)
+endif()
+
+if(IMGUI AND GLES2)
+	message(WARNING "Disabling IMGUI: its renderer backend needs desktop OpenGL, not the GLES2 renderer")
+	set(IMGUI OFF)
 endif()
 
 if(IMGUI)
@@ -672,6 +678,16 @@ set(src_renderer
 
 always_optimize_sourcefile(renderer/stblib_impls.c)
 
+if(GLES2)
+	# The OpenGL ES 2.0 backend (from the d3wasm and tomkidd DOOM3-iOS ports):
+	# GLSL shaders built in, instead of the ARB2 programs of desktop GL.
+	list(REMOVE_ITEM src_renderer renderer/draw_arb2.cpp)
+	file(GLOB src_renderer_glsl renderer/glsl/*.cpp)
+	list(APPEND src_renderer renderer/draw_gles2.cpp ${src_renderer_glsl})
+	add_definitions(-DD3_GLES2=1)
+	set(CMAKE_CXX_STANDARD 11) # the GLSL shaders are C++11 raw strings
+endif()
+
 # I'm a bit sloppy with headers and just glob them in..
 # they're only handled in CMake at all so they turn up in Visual Studio solutions..
 
@@ -788,6 +804,16 @@ set(src_renderbump
 )
 
 add_globbed_headers(src_renderbump "tools/compilers/renderbump")
+
+if(GLES2)
+	# The renderer's debug drawing (r_show*) and the dmap and renderbump
+	# compilers draw with desktop OpenGL's fixed-function calls, which OpenGL
+	# ES doesn't have. Leave them out; their commands do nothing (gles2_stubs).
+	set(src_dmap "")
+	set(src_renderbump "")
+	list(REMOVE_ITEM src_renderer renderer/tr_rendertools.cpp)
+	list(APPEND src_renderer renderer/gles2_stubs.cpp)
+endif()
 
 set(src_snd
 	sound/snd_cache.cpp

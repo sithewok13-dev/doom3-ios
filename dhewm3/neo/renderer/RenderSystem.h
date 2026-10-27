@@ -50,13 +50,8 @@ typedef struct glconfig_s {
 	const char			*version_string;
 	const char			*extensions_string;
 
-	float				glVersion;				// atof( version_string )
-
-
 	int					maxTextureSize;			// queried from GL
 	int					maxTextureUnits;
-	int					maxTextureCoords;
-	int					maxTextureImageUnits;
 	float				maxTextureAnisotropy;
 
 	int					colorBits, alphabits, depthBits, stencilBits;
@@ -87,8 +82,6 @@ typedef struct glconfig_s {
 	int					displayFrequency;
 
 	bool				isFullscreen;
-
-	bool				allowARB2Path;
 
 	bool				isInitialized;
 
@@ -249,7 +242,6 @@ public:
 	// if the pointers are not NULL, timing info will be returned
 	virtual void			EndFrame( int *frontEndMsec, int *backEndMsec ) = 0;
 
-	// aviDemo uses this.
 	// Will automatically tile render large screen shots if necessary
 	// Samples is the number of jittered frames for anti-aliasing
 	// If ref == NULL, session->updateScreen will be used

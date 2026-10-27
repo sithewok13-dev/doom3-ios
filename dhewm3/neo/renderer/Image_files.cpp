@@ -838,7 +838,7 @@ void R_LoadImage( const char *cname, byte **pic, int *width, int *height, ID_TIM
 		*pic = NULL;
 	}
 	if ( timestamp ) {
-		*timestamp = FILE_NOT_FOUND_TIMESTAMP;
+		*timestamp = 0xFFFFFFFF;
 	}
 	if ( width ) {
 		*width = 0;
@@ -859,7 +859,7 @@ void R_LoadImage( const char *cname, byte **pic, int *width, int *height, ID_TIM
 
 	if ( ext == "tga" ) {
 		LoadTGA( name.c_str(), pic, width, height, timestamp );            // try tga first
-		if ( ( pic && *pic == 0 ) || ( timestamp && *timestamp == FILE_NOT_FOUND_TIMESTAMP ) ) {
+		if ( ( pic && *pic == 0 ) || ( timestamp && *timestamp == -1 ) ) {
 			name.StripFileExtension();
 			name.DefaultFileExtension( ".jpg" );
 			LoadJPG( name.c_str(), pic, width, height, timestamp );
