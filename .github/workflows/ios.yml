@@ -1,11 +1,12 @@
-# Builds DOOM 3 and DOOM 3: Resurrection of Evil for iOS (arm64 device) and
-# packages each as an UNSIGNED .ipa (ad-hoc signature only), kept as a
-# workflow artifact. Sideload it (SideStore, Feather) or hand it to
-# ios-pipeline's testflight-ipa.yml for TestFlight.
+# Builds the DOOM 3 app for iOS (arm64 device): dhewm3 with the OpenGL ES
+# renderer, both games (DOOM 3 and Resurrection of Evil) in one app, and
+# packages it as an UNSIGNED .ipa (ad-hoc signature only), kept as a workflow
+# artifact. Sideload it (SideStore, Feather) or hand it to ios-pipeline's
+# testflight-ipa.yml for TestFlight.
 #
-# No game data is built in or bundled: the apps read base/ and d3xp/ from
-# their Documents folder (Files > On My iPhone). The package step fails if a
-# .pk4 ever ends up in an app.
+# No game data is built in or bundled: the app reads base/ and d3xp/ from its
+# Documents folder (Files > On My iPhone > DOOM 3). The package step fails if
+# a .pk4 ever ends up in the app.
 name: iOS
 
 on:
@@ -25,21 +26,9 @@ env:
 
 jobs:
   build:
-    name: ${{ matrix.app }}
+    name: DOOM 3
     runs-on: macos-15
     timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - app: DOOM 3
-            project: DOOM3-iOS.xcodeproj
-            scheme: DOOM3-iOS
-            ipa: DOOM3-iOS-unsigned.ipa
-          - app: DOOM 3 RoE
-            project: DOOM3xp-iOS.xcodeproj
-            scheme: DOOM3xp-iOS
-            ipa: DOOM3RoE-iOS-unsigned.ipa
 
     steps:
       - name: Checkout
@@ -48,52 +37,65 @@ jobs:
       # App Store Connect wants a current SDK, so take the newest release Xcode
       # on the runner rather than its default.
       - name: Select newest Xcode
+        id: xcode
         run: |
           XCODE=$(ls -d /Applications/Xcode_*.app | grep -iv beta | sort -V | tail -1)
           sudo xcode-select -s "$XCODE/Contents/Developer"
           xcodebuild -version
+          echo "version=$(xcodebuild -version | head -1 | tr ' ' '-')" >> "$GITHUB_OUTPUT"
+          which ninja || brew install ninja
+
+      # SDL3 and OpenAL Soft, built for iOS by ios/build-deps.sh (a few
+      # minutes); later runs restore them from the cache.
+      - name: Restore dependencies
+        id: deps
+        uses: actions/cache@v4
+        with:
+          path: build-ios-deps
+          key: ios-deps-${{ steps.xcode.outputs.version }}-${{ env.IOS_DEPLOYMENT_TARGET }}-${{ hashFiles('ios/build-deps.sh', 'ios/toolchain.cmake') }}
+
+      - name: Build dependencies
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: ios/build-deps.sh "$PWD/build-ios-deps"
 
       - name: Build
         run: |
+          DEPS="$PWD/build-ios-deps"
           set +e
-          xcodebuild build \
-            -project "${{ matrix.project }}" \
-            -scheme "${{ matrix.scheme }}" \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath build \
-            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
-            IPHONEOS_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" \
-            > build.log 2>&1
+          {
+            cmake -S dhewm3/neo -B build-ios -G Ninja \
+              --toolchain "$PWD/ios/toolchain.cmake" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_PREFIX_PATH="$DEPS" -DCMAKE_FIND_ROOT_PATH="$DEPS" \
+              -DIOS_BUILD_NUMBER="${{ github.run_number }}" &&
+            cmake --build build-ios
+          } > build.log 2>&1
           status=$?
           set -e
           if [ $status -ne 0 ]; then
             # The first errors, as annotations, so they show on the run page.
-            grep -E '(^|: )(fatal )?error: ' build.log | sort -u | head -40 | while IFS= read -r line; do
+            grep -E '(^|: )(fatal )?error: |CMake Error' build.log | sort -u | head -40 | while IFS= read -r line; do
               echo "::error::${line#$GITHUB_WORKSPACE/}"
             done
             echo "---- errors ----"
-            grep -n -i -E 'error[: ]|^ld: |undefined symbol' build.log | grep -v -E '^[0-9]+: *(CompileC|Ld|/)' | head -80
+            grep -n -i -E 'error[: ]|^ld: |undefined symbol|CMake Error' build.log | head -80
             echo "---- end of log ----"
             tail -60 build.log
             exit $status
           fi
-          grep -E '\*\* BUILD SUCCEEDED' build.log
+          tail -5 build.log
 
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log-${{ matrix.scheme }}
+          name: build-log
           path: build.log
           if-no-files-found: ignore
 
       - name: Package .ipa
         run: |
-          APP="build/Build/Products/Release-iphoneos/${{ matrix.scheme }}.app"
+          APP=build-ios/DOOM3.app
           test -d "$APP"
           # Game data must never be bundled.
           if find "$APP" -iname '*.pk4' | grep -q .; then
@@ -103,14 +105,16 @@ jobs:
           codesign --force --sign - --timestamp=none "$APP"
           rm -rf Payload && mkdir Payload
           cp -R "$APP" Payload/
-          zip -qry "${{ matrix.ipa }}" Payload
-          plutil -p "Payload/${{ matrix.scheme }}.app/Info.plist" | grep -E 'CFBundleIdentifier|CFBundleDisplayName|CFBundleVersion|MinimumOSVersion'
-          lipo -info "Payload/${{ matrix.scheme }}.app/${{ matrix.scheme }}"
-          ls -l "${{ matrix.ipa }}"
+          zip -qry DOOM3-iOS-unsigned.ipa Payload
+          plutil -p Payload/DOOM3.app/Info.plist | grep -E 'CFBundleIdentifier|CFBundleDisplayName|CFBundleVersion|MinimumOSVersion|CFBundleIcons'
+          lipo -info Payload/DOOM3.app/DOOM3
+          # both games' code is in (and nothing else of theirs is visible)
+          nm -g Payload/DOOM3.app/DOOM3 | grep -E 'GetGameAPI_(base|d3xp)$'
+          ls -l DOOM3-iOS-unsigned.ipa
 
       - name: Upload .ipa
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.ipa }}
-          path: ${{ matrix.ipa }}
+          name: DOOM3-iOS-unsigned.ipa
+          path: DOOM3-iOS-unsigned.ipa
           if-no-files-found: error

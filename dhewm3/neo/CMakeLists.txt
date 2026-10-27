@@ -60,6 +60,17 @@ option(SDL2			"Use SDL2 instead of SDL1.2" ON)
 option(SDL3			"Use SDL3 instead of SDL2 or SDL1.2" OFF)
 option(IMGUI		"Build with Dear ImGui integration - requires SDL2/SDL3 and C++11" ON)
 option(GLES2		"Render with the OpenGL ES 2.0 renderer (draw_gles2) instead of ARB2, as on iOS" OFF)
+
+if(IOS)
+	# iOS: one app with both games linked in (no game libraries can be loaded
+	# at runtime; see sys/ios/ios_main.mm), the OpenGL ES renderer, static SDL3.
+	set(GLES2 ON CACHE BOOL "" FORCE)
+	set(SDL3 ON CACHE BOOL "" FORCE)
+	set(SDL2 OFF CACHE BOOL "" FORCE)
+	set(DEDICATED OFF CACHE BOOL "" FORCE)
+	set(HARDLINK_GAME OFF CACHE BOOL "" FORCE)
+	add_definitions(-DD3_IOS=1)
+endif()
 option(REPRODUCIBLE_BUILD "Replace __DATE__ and __TIME__ by hardcoded values for reproducible builds" OFF)
 
 option(TRACY		"Build and integrate the Tracy profiler, requires HARDLINK_GAME" OFF)
@@ -197,6 +208,10 @@ endif()
 # libs
 find_package(OpenAL REQUIRED)
 include_directories(${OPENAL_INCLUDE_DIR})
+if(IOS)
+	add_definitions(-DAL_LIBTYPE_STATIC) # OpenAL Soft, linked statically
+	include_directories(${OPENAL_INCLUDE_DIR}/..) # for <AL/al.h>
+endif()
 
 if (SDL3)
 	if(SDL2)
@@ -206,9 +221,14 @@ if (SDL3)
 	# 1. Look for a SDL3 package,
 	# 2. look for the SDL3-shared component, and
 	# 3. fail if the shared component cannot be found.
-	find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
-	# TODO: include dirs?
-	set(SDLx_LIBRARY SDL3::SDL3)
+	if(IOS)
+		find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-static)
+		set(SDLx_LIBRARY SDL3::SDL3-static)
+	else()
+		find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
+		# TODO: include dirs?
+		set(SDLx_LIBRARY SDL3::SDL3)
+	endif()
 	add_definitions(-DD3_SDL3=1)
 elseif (SDL2)
 	# skip SDL2main
@@ -475,7 +495,10 @@ if(D3_COMPILER_IS_GCC_OR_CLANG)
 	elseif(APPLE)
 		add_definitions(-DMACOS_X=1)
 
-		if(cpu STREQUAL "x86_64")
+		if(IOS)
+			# -arch and the minimum iOS version come from the toolchain
+			# (CMAKE_OSX_ARCHITECTURES, CMAKE_OSX_DEPLOYMENT_TARGET)
+		elseif(cpu STREQUAL "x86_64")
 			add_compile_options(-arch x86_64 -mmacosx-version-min=10.7)
 			set(ldflags "${ldflags} -arch x86_64 -mmacosx-version-min=10.7")
 		elseif(cpu STREQUAL "arm64")
@@ -503,7 +526,12 @@ if(D3_COMPILER_IS_GCC_OR_CLANG)
 			message(FATAL_ERROR "Unsupported CPU architecture for OSX")
 		endif()
 
-		set(sys_libs ${sys_libs} "-framework Carbon -framework Cocoa -framework IOKit")
+		if(IOS)
+			# OpenAL Soft (static) is C++ and plays through CoreAudio
+			set(sys_libs ${sys_libs} "-framework AudioToolbox -framework CoreAudio -framework AVFoundation -framework UIKit -framework Foundation" c++)
+		else()
+			set(sys_libs ${sys_libs} "-framework Carbon -framework Cocoa -framework IOKit")
+		endif()
 	elseif(WIN32)
 		# use 8MB stack instead of 1MB, so big models don't overflow it with _alloca()
 		set(ldflags "${ldflags} -static-libgcc -static-libstdc++ -Wl,--stack,8388608")
@@ -1229,6 +1257,20 @@ if(AROS)
 	set(src_sys_core
 		sys/glimp.cpp
 	)
+elseif(IOS)
+	set(src_sys_base
+		sys/cpu.cpp
+		sys/threads.cpp
+		sys/events.cpp
+		sys/sys_local.cpp
+		sys/posix/posix_net.cpp
+		sys/posix/posix_main.cpp
+	)
+
+	set(src_sys_core
+		sys/glimp.cpp
+		sys/ios/ios_main.mm
+	)
 elseif(APPLE)
 	set(OSX_RESOURCE_FILES
 		"${CMAKE_SOURCE_DIR}/sys/osx/Doom3.icns"
@@ -1421,7 +1463,7 @@ endif()
 	endif()
 endif()
 
-if(BASE AND NOT HARDLINK_GAME)
+if(BASE AND NOT HARDLINK_GAME AND NOT IOS)
 	if (AROS)
 		add_executable(base ${src_game} sys/aros/aros_dynmodule.cpp sys/aros/aros_dynmodcommon.cpp)
 		target_link_libraries(base idlib dynmodglue)
@@ -1452,7 +1494,7 @@ if(BASE AND NOT HARDLINK_GAME)
 	endif()
 endif()
 
-if(D3XP AND NOT HARDLINK_GAME)
+if(D3XP AND NOT HARDLINK_GAME AND NOT IOS)
 	if (AROS)
 		add_executable(d3xp ${src_d3xp} sys/aros/aros_dynmodule.cpp sys/aros/aros_dynmodcommon.cpp)
 		target_link_libraries(d3xp dynmodglue)
@@ -1479,4 +1521,39 @@ if(D3XP AND NOT HARDLINK_GAME)
 				ARCHIVE DESTINATION "${libdir}"
 		)
 	endif()
+endif()
+
+if(IOS)
+	# iOS can't load game libraries at run time, so both games' code is linked
+	# into the app. Each game (with its own copy of idlib, as a game library
+	# would have) is merged into one object where only GetGameAPI_<game> stays
+	# visible; everything else becomes local, so the two games' identically
+	# named classes can't clash. Sys_DLL_Load() in sys/ios/ios_main.mm hands
+	# out those entry points by library name, so dhewm3's usual game loading
+	# and switching (fs_game, the Mods menu) work unchanged.
+	function(ios_game_module name defs gamedir sources)
+		add_library(${name}_objs OBJECT ${sources})
+		set_target_properties(${name}_objs PROPERTIES COMPILE_DEFINITIONS "${defs};GetGameAPI=GetGameAPI_${name}")
+		target_include_directories(${name}_objs PRIVATE "${CMAKE_SOURCE_DIR}/${gamedir}")
+		set(merged "${CMAKE_CURRENT_BINARY_DIR}/${name}_game.o")
+		add_custom_command(OUTPUT "${merged}"
+			COMMAND ${CMAKE_CXX_COMPILER} -r -nostdlib
+				-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}
+				-Wl,-exported_symbol,_GetGameAPI_${name}
+				-o "${merged}" "$<TARGET_OBJECTS:${name}_objs>" "$<TARGET_FILE:idlib>"
+			DEPENDS ${name}_objs idlib "$<TARGET_OBJECTS:${name}_objs>"
+			COMMENT "Merging the ${name} game code into ${name}_game.o"
+			COMMAND_EXPAND_LISTS VERBATIM)
+		set_source_files_properties("${merged}" PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
+		target_sources(${DHEWM3BINARY} PRIVATE "${merged}")
+	endfunction()
+
+	ios_game_module(base "GAME_DLL" game "${src_game}")
+	ios_game_module(d3xp "GAME_DLL;_D3XP;CTF" d3xp "${src_d3xp}")
+
+	# the app around the engine: Info.plist, first-launch screen, icons
+	if(NOT IOS_APP_DIR)
+		set(IOS_APP_DIR "${CMAKE_SOURCE_DIR}/../../ios")
+	endif()
+	include("${IOS_APP_DIR}/ios_app.cmake")
 endif()

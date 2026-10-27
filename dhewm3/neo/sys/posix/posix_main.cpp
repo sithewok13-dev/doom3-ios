@@ -288,6 +288,7 @@ void Posix_Shutdown( void ) {
 	}
 }
 
+#ifndef D3_IOS // iOS links the game code in: see sys/ios/ios_main.mm
 /*
 =================
 Sys_DLL_Load
@@ -341,6 +342,7 @@ Sys_DLL_Unload
 void Sys_DLL_Unload( uintptr_t handle ) {
 	dlclose( (void *)handle );
 }
+#endif // D3_IOS
 
 /*
 ================
