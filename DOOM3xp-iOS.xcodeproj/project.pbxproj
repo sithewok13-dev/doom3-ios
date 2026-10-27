@@ -171,10 +171,6 @@
 		A184FB312252A80E00E386D7 /* Mover.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A184FA9E2252A80E00E386D7 /* Mover.cpp */; settings = {COMPILER_FLAGS = "-w"; }; };
 		A184FB322252A80E00E386D7 /* MultiplayerGame.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A184FA9F2252A80E00E386D7 /* MultiplayerGame.cpp */; settings = {COMPILER_FLAGS = "-w"; }; };
 		A184FB332252A80E00E386D7 /* MultiplayerGame.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A184FA9F2252A80E00E386D7 /* MultiplayerGame.cpp */; settings = {COMPILER_FLAGS = "-w"; }; };
-		A184FB392252BC5D00E386D7 /* base in Resources */ = {isa = PBXBuildFile; fileRef = A184FB372252BC5D00E386D7 /* base */; };
-		A184FB3A2252BC5D00E386D7 /* base in Resources */ = {isa = PBXBuildFile; fileRef = A184FB372252BC5D00E386D7 /* base */; };
-		A184FB3B2252BC5D00E386D7 /* d3xp in Resources */ = {isa = PBXBuildFile; fileRef = A184FB382252BC5D00E386D7 /* d3xp */; };
-		A184FB3C2252BC5D00E386D7 /* d3xp in Resources */ = {isa = PBXBuildFile; fileRef = A184FB382252BC5D00E386D7 /* d3xp */; };
 		A18E826B2227583300822BAB /* libjpeg-iOS.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A18E81F82227565500822BAB /* libjpeg-iOS.a */; };
 		A18E827822282AE000822BAB /* draw_gles2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A18E827722282AE000822BAB /* draw_gles2.cpp */; settings = {COMPILER_FLAGS = "-w"; }; };
 		A18E827922282AE400822BAB /* draw_gles2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A18E827722282AE000822BAB /* draw_gles2.cpp */; settings = {COMPILER_FLAGS = "-w"; }; };
@@ -891,8 +887,6 @@
 		A184FA9F2252A80E00E386D7 /* MultiplayerGame.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MultiplayerGame.cpp; sourceTree = "<group>"; };
 		A184FAA02252A80E00E386D7 /* PlayerIcon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerIcon.h; sourceTree = "<group>"; };
 		A184FAA12252A80E00E386D7 /* SecurityCamera.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecurityCamera.h; sourceTree = "<group>"; };
-		A184FB372252BC5D00E386D7 /* base */ = {isa = PBXFileReference; lastKnownFileType = folder; name = base; path = ../../../Steam/doom3/base; sourceTree = "<group>"; };
-		A184FB382252BC5D00E386D7 /* d3xp */ = {isa = PBXFileReference; lastKnownFileType = folder; name = d3xp; path = ../../../Steam/doom3/d3xp; sourceTree = "<group>"; };
 		A18E81F32227565400822BAB /* jpeg.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = jpeg.xcodeproj; path = jpeg/jpeg/jpeg.xcodeproj; sourceTree = "<group>"; };
 		A18E827722282AE000822BAB /* draw_gles2.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = draw_gles2.cpp; sourceTree = "<group>"; };
 		A18E827B22282ECA00822BAB /* stencilShadowShaderVP.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = stencilShadowShaderVP.cpp; sourceTree = "<group>"; };
@@ -1448,8 +1442,6 @@
 		29B97314FDCFA39411CA2CEA /* CustomTemplate */ = {
 			isa = PBXGroup;
 			children = (
-				A184FB372252BC5D00E386D7 /* base */,
-				A184FB382252BC5D00E386D7 /* d3xp */,
 				A15BF4D421FCDD7A005F4B74 /* DOOM3 */,
 				A15BF74921FCF773005F4B74 /* DOOM3-iOS */,
 				A1C125012204F5F900EAD9CB /* DOOM3-tvOS */,
@@ -2649,9 +2641,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1B80A4721F96DAA00560711 /* DOOM3LaunchScreen.storyboard in Resources */,
-				A184FB392252BC5D00E386D7 /* base in Resources */,
 				A15BF74B21FCF7E3005F4B74 /* Main.storyboard in Resources */,
-				A184FB3B2252BC5D00E386D7 /* d3xp in Resources */,
 				A19681DC2230D63900F06619 /* Avqest.ttf in Resources */,
 				A1B80AF421F98E6500560711 /* DOOM3xp-iOS.xcassets in Resources */,
 			);
@@ -2663,9 +2653,7 @@
 			files = (
 				A1C125052204F73000EAD9CB /* Main.storyboard in Resources */,
 				A1B80B0521FA5BF200560711 /* DOOM3xp-tvOS.xcassets in Resources */,
-				A184FB3C2252BC5D00E386D7 /* d3xp in Resources */,
 				A19681DD2230D63900F06619 /* Avqest.ttf in Resources */,
-				A184FB3A2252BC5D00E386D7 /* base in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
