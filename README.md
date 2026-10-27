@@ -1,42 +1,50 @@
-<img align="left" width="100" height="100" src="https://raw.githubusercontent.com/tomkidd/DOOM3-iOS/master/icon_doom3.png">  
+<img align="left" width="100" height="100" src="icon_doom3.png">
 
-#  DOOM 3 for iOS and tvOS for Apple TV
+# DOOM 3 for iPhone and iPad
 
 &nbsp;
 
-This is my port of DOOM 3 for iOS, running in modern resolutions including the full width of the iPhone X. I have also made a target and version for tvOS to run on Apple TV.
+The original 2004 DOOM 3 and its expansion, Resurrection of Evil, in one app, on
+[dhewm3](https://dhewm3.org) 1.5.5. Work in progress, on the `ios` branch.
 
-![screenshot](https://raw.githubusercontent.com/tomkidd/DOOM3-iOS/master/ss_doom3.png)
+**You bring the game.** No game files are included. You need your own copy of the
+original DOOM 3 (Steam, GOG or disc, patched to 1.3.1). The BFG Edition's files
+don't work. On first launch the app says what to copy:
 
-Features
+- DOOM 3's `base` folder contents into Files > On My iPhone > DOOM 3 > `base`
+  (the nine files `pak000.pk4` to `pak008.pk4`)
+- for Resurrection of Evil, also its `d3xp` folder contents into `d3xp`
+  (`pak000.pk4`, `pak001.pk4`), then pick it under **Mods** in the main menu
 
-- Tested and builds on Xcode 10.
-- Runs single player campaigns at full screen and full speed on iOS
-- Support for original campaign and expansion pack campaigns via separate apps.
-- MFi controller support (reccomended) and on-screen control options
-- Second project target for tvOS that takes advantage of focus model and removes on-screen controls.
-- Limited support for native menus of original game
+## Building
 
-This commit does not need any placeholder resources as it is not an update of an existing id Software port. 
+GitHub Actions builds it on every push to `ios` (`.github/workflows/ios.yml`) and
+keeps an unsigned `DOOM3-iOS-unsigned.ipa` with each run, for sideloading or for
+TestFlight through ios-pipeline. To build on a Mac with Xcode, CMake and Ninja:
 
-**NOTE: this is a port of the *original* DOOM 3 from 2004, not the DOOM 3: BFG Edition from 2012**
+```sh
+ios/build-deps.sh                      # SDL3 and OpenAL Soft for iOS, into build-ios-deps/
+cmake -S dhewm3/neo -B build-ios -G Ninja --toolchain ios/toolchain.cmake \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_PREFIX_PATH=$PWD/build-ios-deps -DCMAKE_FIND_ROOT_PATH=$PWD/build-ios-deps
+cmake --build build-ios                # build-ios/DOOM3.app
+```
 
-You will need to provide your own copies of the `base` and `d3xp` directories from an existing instalation of DOOM 3. The latter directory is only needed if you want to run the expansion. You can buy *DOOM 3* on Steam [here](https://store.steampowered.com/app/9050/DOOM_3/). You can buy the expansion pack *DOOM 3: Resurrection of Evil* on Steam [here](https://store.steampowered.com/app/9070/DOOM_3_Resurrection_of_Evil/). Note that GOG does not sell the original game, they only sell the *BFG Edition* which is incompatible with this release. 
+## What's where
 
-There are two Xcode project files, one for DOOM 3, `DOOM3-iOS.xcodeproj`, and one for the expansion pack, `DOOM3xp-iOS.xcodeproj`. You will need to drag your directories into the project and select "Create Folder References". The `base` folder needs to be added to the DOOM 3 project and target, while both the `base` and `d3xp` folders need to be added to the expansion pack project. The folders will be blue if you've done it right:
+- `dhewm3/`: dhewm3 1.5.5 (imported unmodified, then changed in later commits)
+  with the OpenGL ES renderer and the iOS system code (`neo/sys/ios/`)
+- `ios/`: the app around it: Info.plist, icons, the first-launch screen, the
+  dependency build
+- `docs/ios/PLAN.md`: the plan and the decisions made so far
 
-![folders](https://raw.githubusercontent.com/tomkidd/DOOM3-iOS/master/folders.png)
+## Credits
 
-![foldersxp](https://raw.githubusercontent.com/tomkidd/DOOM3-iOS/master/foldersxp.png)
+- [dhewm3](https://github.com/dhewm/dhewm3) by Daniel Gibson and contributors,
+  from id Software's DOOM 3 GPL source
+- The OpenGL ES renderer from Tom Kidd's [DOOM3-iOS](https://github.com/tomkidd/DOOM3-iOS),
+  which this repository was forked from, and Gabriel Cuvillier's
+  [d3wasm](https://github.com/gabrielcuvillier/d3wasm)
+- [SDL](https://www.libsdl.org) and [OpenAL Soft](https://openal-soft.org)
 
-You can read a lengthy blog article on how I did all this [here](http://schnapple.com/doom-3-for-ios-and-tvos-for-apple-tv/).
-
-This port was based on [dhewm3](https://dhewm3.org/) and uses [SDL for iOS](https://www.libsdl.org/). I also referenced to [this fork for WebAssembly/WebGL](https://github.com/gabrielcuvillier/d3wasm) from Gabriel Cuvillier for OpenGL ES code. On-screen joystick code came from [this repo](https://github.com/bradhowes/Joystick) by Brad Howe. Font Diablo Heavy available [here](https://fontzone.net/font-details/diablo-heavy). I also studied the iOS port of [Hedgewars](https://github.com/hedgewars/hw) for information on how to use UIKit alongside SDL.
-
-[Video of DOOM 3 running on an iPhone X](https://www.youtube.com/watch?v=KEaeWKSfgB8)
-
-<!--[Video of DOOM 3 running on an Apple TV](https://www.youtube.com/watch?v=jjO2pAVgb84)-->
-
-I have also made apps for [*Wolfenstein 3-D*](https://github.com/tomkidd/Wolf3D-iOS), [*DOOM*, *DOOM II* and *Final DOOM*](https://github.com/tomkidd/DOOM-iOS), [*Quake*](https://github.com/tomkidd/Quake-iOS), [*Quake II*](https://github.com/tomkidd/Quake2-iOS), [*Quake III: Arena*](https://github.com/tomkidd/Quake3-iOS) and [*Return to Castle Wolfenstein*](https://github.com/tomkidd/RTCW-iOS). 
-
-Have fun. For any questions I can be reached at tomkidd@gmail.com
+The code is GPLv3, like the DOOM 3 source.
