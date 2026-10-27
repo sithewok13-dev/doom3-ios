@@ -47,6 +47,7 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 #include "sys/ios/ios_game.h"
 #include "sys/ios/ios_input.h"
 #include "sys/ios/ios_net.h"
+#include "sys/ios/ios_menu.h"
 
 // a game report older than this (no game running, or it stopped) counts for nothing
 static const int GAME_REPORT_MSEC = 500;
@@ -706,6 +707,7 @@ void IOS_TouchFrame( void ) {
 	}
 
 	IOS_DoAsked();
+	IOS_MenuFrame();
 	IOS_DoPhoto();
 	IOS_DoCinema();
 
@@ -719,6 +721,7 @@ void IOS_TouchFrame( void ) {
 		// the intro videos as the game starts: a tap skips them
 		if ( introStart < 0 ) {
 			introStart = Sys_Milliseconds();
+			introOver = !IOS_PlayIntro();	// (none, as the app's setting has it)
 		}
 		if ( Sys_Milliseconds() - introStart < INTRO_MSEC ) {
 			mode = IOSTOUCH_MODE_SKIP;

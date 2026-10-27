@@ -88,6 +88,8 @@ enum {
 void	IOSTouch_Frame( int mode );						// once a frame, on the main thread
 void	IOSTouch_TakeInput( iosTouchInput_t *input );	// as each usercmd is built
 int		IOSTouch_GuiTouch( float *x, float *y, float *w, float *h );	// a finger on the PDA: where, and the screen's size (points)
+float	IOSTouch_LookScale( void );			// the look's speed, as the app's menu sets it (1: as made)
+void	IOSTouch_SetLookScale( float scale );
 float	IOSTouch_TakeGuiScroll( void );	// how far (points, + down) it dragged since the last call
 void	IOSTouch_PhotoTaken( const char *path );	// a photo written there (PNG), for Photos; NULL: none
 

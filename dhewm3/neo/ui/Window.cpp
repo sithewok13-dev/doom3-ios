@@ -838,6 +838,46 @@ idWindow *idWindow::IOS_FocusedTextField() {
 
 /*
 ================
+idWindow::IOS_FindLabel
+================
+*/
+static bool IOS_TextIs( idWinStr &text, const char *label ) {
+	const char *s = text.c_str();
+	if ( s[0] == '#' ) {
+		s = common->GetLanguageDict()->GetString( s );
+	}
+	idStr t = s;
+	t.StripLeading( ' ' );
+	t.StripTrailingWhitespace();
+	return t.Icmp( label ) == 0;
+}
+
+bool idWindow::IOS_FindLabel( const char *label, float *x, float *y ) {
+	if ( !visible ) {
+		return false;
+	}
+	for ( int i = 0; i < drawWindows.Num(); i++ ) {
+		drawWin_t &d = drawWindows[i];
+		if ( d.win ) {
+			if ( d.win->visible && IOS_TextIs( d.win->text, label ) ) {
+				*x = d.win->drawRect.x + d.win->drawRect.w * 0.5f;
+				*y = d.win->drawRect.y + d.win->drawRect.h * 0.5f;
+				return true;
+			}
+			if ( d.win->IOS_FindLabel( label, x, y ) ) {
+				return true;
+			}
+		} else if ( d.simp && d.simp->visible && IOS_TextIs( d.simp->text, label ) ) {
+			*x = d.simp->drawRect.x + d.simp->drawRect.w * 0.5f;
+			*y = d.simp->drawRect.y + d.simp->drawRect.h * 0.5f;
+			return true;
+		}
+	}
+	return false;
+}
+
+/*
+================
 idWindow::IOS_ListShown
 ================
 */

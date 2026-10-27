@@ -1280,6 +1280,7 @@ elseif(IOS)
 		sys/ios/ios_main.mm
 		sys/ios/ios_angle.cpp
 		sys/ios/ios_input.cpp
+		sys/ios/ios_menu.cpp
 	)
 elseif(APPLE)
 	set(OSX_RESOURCE_FILES

@@ -919,3 +919,10 @@ bool IOS_GuiListShown( idUserInterface *gui, const char *listName ) {
 	return desktop && desktop->IOS_ListShown( listName );
 }
 #endif
+
+#ifdef D3_IOS
+bool IOS_GuiFindLabel( idUserInterface *gui, const char *label, float *x, float *y ) {
+	idWindow *desktop = gui ? static_cast<idUserInterfaceLocal *>( gui )->GetDesktop() : NULL;
+	return desktop && desktop->IOS_FindLabel( label, x, y );
+}
+#endif

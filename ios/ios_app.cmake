@@ -7,12 +7,13 @@ set(IOS_VERSION "1.0" CACHE STRING "CFBundleShortVersionString")
 set(IOS_BUILD_NUMBER "1" CACHE STRING "CFBundleVersion (CI passes its run number)")
 set(IOS_EXECUTABLE "DOOM3")
 
-# the first-launch screen, the touch controls and finding games on the
-# Wi-Fi (Objective-C, ARC)
+# the first-launch screen, the touch controls, finding games on the Wi-Fi
+# and the app's own main menu (Objective-C, ARC)
 set(IOS_APP_SOURCES
 	"${IOS_APP_DIR}/IOSGameData.m"
 	"${IOS_APP_DIR}/IOSTouch.m"
 	"${IOS_APP_DIR}/IOSNetwork.m"
+	"${IOS_APP_DIR}/IOSMenu.m"
 )
 target_sources(${DHEWM3BINARY} PRIVATE ${IOS_APP_SOURCES})
 set_source_files_properties(${IOS_APP_SOURCES} PROPERTIES COMPILE_FLAGS "-fobjc-arc")

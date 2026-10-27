@@ -66,6 +66,10 @@
 #include "sys/ios/ios_touch.h"
 #include "sys/ios/ios_net.h"
 
+// the app's own main menu (ios/IOSMenu.m), under the overlay
+void IOSMenu_Frame(UIView* game, UIView* overlay, int bOverMenus);
+int IOSMenu_Showing(void);
+
 #define IOSTOUCH_COUNT(a) ((int)(sizeof(a) / sizeof((a)[0])))
 
 // Look speed: degrees the view turns per point of finger travel. In the
@@ -155,6 +159,9 @@
 #define IOSTOUCH_GYRO_MAX_DT 0.05
 #define IOSTOUCH_GYRO_MAX_FRAME 0.5
 #define IOSTOUCH_GYRO_TURN_HOLD 0.35
+// The look's speed, a multiple of IOSTOUCH_LOOK_DEG_X and _Y (the app's
+// menu: SETTINGS, LOOK SPEED)
+#define IOSTOUCH_LOOKSCALE_DEFAULTS_KEY @"iosTouchLookScale"
 // The settings, under the same keys as the owner's other ports
 #define IOSTOUCH_GYRO_DEFAULTS_KEY @"iosTouchGyroMode"
 #define IOSTOUCH_GYRO_SENS_DEFAULTS_KEY @"iosTouchGyroSens"
@@ -255,6 +262,7 @@ static int iosTouch_bAlwaysRun;
 
 // The look drags' and the gyro's turning since the last usercmd (degrees)
 static float iosTouch_yaw, iosTouch_pitch;
+static float iosTouch_lookScale = 1.0f;
 
 static int iosTouch_mode = IOSTOUCH_MODE_HIDDEN;
 static int iosTouch_bTrayOpen;
@@ -930,6 +938,9 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	[self addSubview:toast];
 
 	iosTouch_bAlwaysRun = [[NSUserDefaults standardUserDefaults] boolForKey:IOSTOUCH_ALWAYSRUN_DEFAULTS_KEY];
+	if ([[NSUserDefaults standardUserDefaults] objectForKey:IOSTOUCH_LOOKSCALE_DEFAULTS_KEY]) {
+		iosTouch_lookScale = fmaxf(0.25f, [[NSUserDefaults standardUserDefaults] floatForKey:IOSTOUCH_LOOKSCALE_DEFAULTS_KEY]);
+	}
 	iosTouch_GyroSetup();
 	[self refreshLabels];
 	return self;
@@ -1015,8 +1026,9 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 		if (field) [consoleKeys becomeFirstResponder];
 		else [consoleKeys resignFirstResponder];
 	}
-	resumeButton.hidden = !IOS_MenuOverGame();
-	joinButton.hidden = !resumeButton.hidden || !IOS_MenuServerList();
+	// (the app's own menu has its RESUME)
+	resumeButton.hidden = !IOS_MenuOverGame() || IOSMenu_Showing();
+	joinButton.hidden = !resumeButton.hidden || !IOS_MenuServerList() || IOSMenu_Showing();
 }
 
 - (void)freezeExitTapped
@@ -1402,8 +1414,8 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			break;
 		}
 		case ROLE_LOOK:
-			iosTouch_yaw -= (float)dx * IOSTOUCH_LOOK_DEG_X;
-			iosTouch_pitch += (float)dy * IOSTOUCH_LOOK_DEG_Y;
+			iosTouch_yaw -= (float)dx * IOSTOUCH_LOOK_DEG_X * iosTouch_lookScale;
+			iosTouch_pitch += (float)dy * IOSTOUCH_LOOK_DEG_Y * iosTouch_lookScale;
 			break;
 		case ROLE_WHEEL:
 			if (s->bWheelOpener && !iosTouch_bWheelTapMode) [self aimWheel:s at:p];
@@ -1442,8 +1454,8 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			}
 			if (b->bLookWhileHeld) {
 				// a button that looks: dragging turns the view, it stays pressed
-				iosTouch_yaw -= (float)dx * IOSTOUCH_LOOK_DEG_X;
-				iosTouch_pitch += (float)dy * IOSTOUCH_LOOK_DEG_Y;
+				iosTouch_yaw -= (float)dx * IOSTOUCH_LOOK_DEG_X * iosTouch_lookScale;
+				iosTouch_pitch += (float)dy * IOSTOUCH_LOOK_DEG_Y * iosTouch_lookScale;
 				break;
 			}
 			s->bInside = [self isPoint:p onButton:s->button];
@@ -2395,6 +2407,18 @@ void IOSTouch_Frame(int mode)
 	}
 	[game bringSubviewToFront:iosTouch_pOverlay];
 	[iosTouch_pOverlay frame:mode];
+	IOSMenu_Frame(game, iosTouch_pOverlay, mode == IOSTOUCH_MODE_MENU);
+}
+
+float IOSTouch_LookScale(void)
+{
+	return iosTouch_lookScale;
+}
+
+void IOSTouch_SetLookScale(float scale)
+{
+	iosTouch_lookScale = scale;
+	[[NSUserDefaults standardUserDefaults] setFloat:scale forKey:IOSTOUCH_LOOKSCALE_DEFAULTS_KEY];
 }
 
 void IOSTouch_TakeInput(iosTouchInput_t* input)

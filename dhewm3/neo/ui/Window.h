@@ -190,6 +190,8 @@ public:
 	// any; whether the list called listName is showing
 	idWindow *		IOS_FocusedTextField();
 	bool			IOS_ListShown( const char *listName );
+	// iOS: the middle of the window showing label (as drawn last), if one does
+	bool			IOS_FindLabel( const char *label, float *x, float *y );
 #endif
 
 	enum {

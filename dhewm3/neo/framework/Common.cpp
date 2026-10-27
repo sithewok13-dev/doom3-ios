@@ -59,6 +59,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "sys/sys_imgui.h"
 
 #include "framework/Common.h"
+#ifdef D3_IOS
+#include "sys/ios/ios_menu.h"
+#endif
 
 #include "GameCallbacks_local.h"
 #include "Session_local.h" // DG: For FT_IsDemo/isDemo() hack
@@ -3155,7 +3158,12 @@ void idCommonLocal::Init( int argc, char **argv ) {
 		if ( !AddStartupCommands() ) {
 #endif
 			// if the user didn't give any commands, run default action
+#ifdef D3_IOS
+			// iOS: the intro videos, as the app's setting has it
+			session->StartMenu( IOS_PlayIntro() != 0 );
+#else
 			session->StartMenu( true );
+#endif
 		}
 
 		// print all warnings queued during initialization
