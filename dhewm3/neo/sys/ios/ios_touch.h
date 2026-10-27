@@ -52,10 +52,11 @@ typedef struct {
 enum {
 	IOSTOUCH_CMD_ATTACK	= 1 << 0,
 	IOSTOUCH_CMD_RUN	= 1 << 1,	// the run marker, or Always Run (vanilla stamina either way)
+	IOSTOUCH_CMD_SCORES	= 1 << 2,	// multiplayer: the scores (held)
 };
 
-// What the overlay shows for: hidden in menus (a finger is the mouse
-// there), the controls in play, a tap to skip over cinematics and the story
+// What the overlay shows for: in menus only a keyboard button (a finger is
+// the mouse there), the controls in play, a tap to skip over cinematics and the story
 // intro, a close button over the PDA (whose cursor goes where a finger is),
 // and the console's keyboard and close buttons over the console
 enum {
@@ -64,6 +65,7 @@ enum {
 	IOSTOUCH_MODE_SKIP,
 	IOSTOUCH_MODE_PDA,
 	IOSTOUCH_MODE_CONSOLE,
+	IOSTOUCH_MODE_MENU,		// the menus: only a keyboard button (names in the multiplayer menus)
 };
 
 // One slot of the weapon wheel, as the game reports it (sys/ios/ios_game.h)
@@ -112,6 +114,9 @@ void	IOS_EndFreeze( void );
 void	IOS_CinemaBurst( void );			// five photos round the player, the world stopped meanwhile
 int		IOS_Frozen( void );					// Action Freeze (or the cinematic burst) is on
 int		IOS_InGame( void );					// a level is running, no menu over it
+int		IOS_Multiplayer( void );			// a multiplayer game (no pausing, cheats or Action Freeze)
+void	IOS_MenuText( const char *text );	// typed into a menu's text field (UTF-8; "\n" Enter)
+void	IOS_MenuBackspace( void );
 
 // The levels of the game running (for the cheat's LEVEL), in its order
 #define IOSTOUCH_MAX_LEVELS 64

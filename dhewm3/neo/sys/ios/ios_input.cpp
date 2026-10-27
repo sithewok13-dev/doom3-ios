@@ -35,6 +35,7 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 #include "framework/KeyInput.h"
 #include "framework/UsercmdGen.h"
 #include "framework/Session_local.h"
+#include "framework/async/AsyncNetwork.h"
 #include "ui/UserInterface.h"
 #include "framework/FileSystem.h"
 #include "renderer/RenderSystem.h"
@@ -43,6 +44,7 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 #include "sys/ios/ios_touch.h"
 #include "sys/ios/ios_game.h"
 #include "sys/ios/ios_input.h"
+#include "sys/ios/ios_net.h"
 
 // a game report older than this (no game running, or it stopped) counts for nothing
 static const int GAME_REPORT_MSEC = 500;
@@ -161,7 +163,50 @@ void IOS_HoldGame( int hold ) {
 }
 
 bool IOS_GameHeld( void ) {
-	return gameHeld;
+	// (a multiplayer game goes on for everyone else: never held)
+	return gameHeld && !idAsyncNetwork::IsActive();
+}
+
+int IOS_Multiplayer( void ) {
+	return idAsyncNetwork::IsActive();
+}
+
+/*
+================
+IOS_MenuText
+
+Typing into a menu's text field (a player or server name): as a keyboard's
+typing comes, SDL's text input events. (Their text is copied as they are
+read: a few buffers in turn are kept long enough.)
+================
+*/
+void IOS_MenuText( const char *text ) {
+	static char buffers[16][32];
+	static int next;
+	for ( const char *c = text; *c; ) {
+		if ( *c == '\n' || *c == '\r' ) {
+			IOS_PressKey( SDL_SCANCODE_RETURN );
+			c++;
+			continue;
+		}
+		char *buf = buffers[next];
+		next = ( next + 1 ) % 16;
+		int n = 0;
+		while ( *c && *c != '\n' && *c != '\r' && n < (int)sizeof( buffers[0] ) - 1 ) {
+			buf[n++] = *c++;
+		}
+		buf[n] = '\0';
+		SDL_Event ev;
+		memset( &ev, 0, sizeof( ev ) );
+		ev.type = SDL_EVENT_TEXT_INPUT;
+		ev.text.timestamp = SDL_GetTicksNS();
+		ev.text.text = buf;
+		SDL_PushEvent( &ev );
+	}
+}
+
+void IOS_MenuBackspace( void ) {
+	IOS_PressKey( SDL_SCANCODE_BACKSPACE );
 }
 
 void IOS_SetCheat( int on ) {
@@ -222,7 +267,7 @@ int IOS_Frozen( void ) {
 }
 
 void IOS_StartFreeze( void ) {
-	if ( frozen || !IOS_InGame() ) {
+	if ( frozen || !IOS_InGame() || IOS_Multiplayer() ) {
 		return;
 	}
 	frozen = true;
@@ -289,7 +334,8 @@ static void IOS_DoCinema( void ) {
 void IOS_TakePhoto( int selfie ) {
 	if ( photoState == PHOTO_NONE ) {
 		// (frozen, the free camera's view is the photo)
-		photoState = ( selfie && !frozen ) ? SELFIE_ASKED : PHOTO_ASKED;
+		// (multiplayer: the third person view is everyone's, so no selfie)
+		photoState = ( selfie && !frozen && !IOS_Multiplayer() ) ? SELFIE_ASKED : PHOTO_ASKED;
 	}
 }
 
@@ -556,6 +602,13 @@ menus, where a finger is the mouse.
 ================
 */
 void IOS_TouchFrame( void ) {
+	// games Bonjour has just found on the Wi-Fi, for the list being made
+	char found[8][32];
+	int numFound = IOSNet_Servers( found, 8, 1 );
+	for ( int i = 0; i < numFound; i++ ) {
+		idAsyncNetwork::client.IOS_QueryLANServer( found[i] );
+	}
+
 	IOS_DoAsked();
 	IOS_DoPhoto();
 	IOS_DoCinema();
@@ -566,6 +619,8 @@ void IOS_TouchFrame( void ) {
 		mode = IOSTOUCH_MODE_CONSOLE;
 	} else if ( sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiIntro ) {
 		mode = IOSTOUCH_MODE_SKIP;
+	} else if ( sessLocal.guiActive != NULL ) {
+		mode = IOSTOUCH_MODE_MENU;
 	} else if ( sessLocal.mapSpawned && sessLocal.guiActive == NULL ) {
 		if ( gameFresh && gameReport.inCinematic ) {
 			mode = IOSTOUCH_MODE_SKIP;
@@ -624,6 +679,9 @@ void IOS_AddTouchToUsercmd( usercmd_t &cmd, idVec3 &viewangles ) {
 	}
 	if ( in.buttons & IOSTOUCH_CMD_RUN ) {
 		cmd.buttons |= BUTTON_RUN;
+	}
+	if ( in.buttons & IOSTOUCH_CMD_SCORES ) {
+		cmd.buttons |= BUTTON_SCORES;
 	}
 
 	viewangles[YAW] += in.yaw;

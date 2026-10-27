@@ -79,6 +79,12 @@
 	</array>
 	<key>NSMotionUsageDescription</key>
 	<string>DOOM 3 can aim with your phone's movement (Gyro in the menu button's tray).</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>DOOM 3 finds and joins multiplayer games on your Wi-Fi.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_doom3._udp</string>
+	</array>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>The camera button saves your photos and selfies of the game to Photos.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>

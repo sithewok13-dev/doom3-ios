@@ -93,6 +93,9 @@ public:
 	void				GetServerInfo( const netadr_t adr );
 	void				GetServerInfo( const char *address );
 	void				GetLANServers( void );
+#ifdef D3_IOS
+	void				IOS_QueryLANServer( const char *address );
+#endif
 	void				GetNETServers( void );
 	void				ListServers( void );
 	void				ClearServers( void );

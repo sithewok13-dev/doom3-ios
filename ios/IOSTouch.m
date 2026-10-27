@@ -37,6 +37,9 @@
  *   drag scrolls the text or list under it; a close button in the corner.
  * - In play, a tap on the screen (not a button) puts away the tip or the
  *   objective showing.
+ * - Over the menus: a keyboard button in the top corner, for the text
+ *   fields (the multiplayer menus' names); typing goes in as a keyboard's.
+ * - In a multiplayer game PDA is SCORES (held), and CHEAT isn't there.
  * - Over the console: the on-screen keyboard (its own, typing straight into
  *   the console) and buttons to hide and show it and to close the console;
  *   elsewhere a finger is the mouse, as in the menus.
@@ -252,6 +255,8 @@ static int iosTouch_bFlying;
 static CFTimeInterval iosTouch_jumpTapUp = -1.0;	// a quick tap on JUMP lifted then, while flying
 // Action Freeze (or the cinematic burst) on, as last read
 static int iosTouch_bFrozen;
+// a multiplayer game, as last read
+static int iosTouch_bMultiplayer;
 
 // ---------------------------------------------------------------- the weapon wheel
 
@@ -617,6 +622,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 // Takes the on-screen keyboard's typing for the console: plain keys, no
 // corrections, capitals or curly quotes, which commands don't want
 @interface IOSConsoleKeys : UIView <UIKeyInput>
+@property (nonatomic) BOOL toMenu;	// typing into a menu's text field, not the console
 @property (nonatomic) UITextAutocorrectionType autocorrectionType;
 @property (nonatomic) UITextAutocapitalizationType autocapitalizationType;
 @property (nonatomic) UITextSpellCheckingType spellCheckingType;
@@ -646,8 +652,17 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 
 - (BOOL)canBecomeFirstResponder { return YES; }
 - (BOOL)hasText { return YES; }	// (so backspace always reaches the console)
-- (void)insertText:(NSString*)text { IOS_ConsoleText(text.UTF8String); }
-- (void)deleteBackward { IOS_ConsoleKey(IOSTOUCH_KEY_BACKSPACE); }
+- (void)insertText:(NSString*)text
+{
+	if (self.toMenu) IOS_MenuText(text.UTF8String);
+	else IOS_ConsoleText(text.UTF8String);
+}
+
+- (void)deleteBackward
+{
+	if (self.toMenu) IOS_MenuBackspace();
+	else IOS_ConsoleKey(IOSTOUCH_KEY_BACKSPACE);
+}
 
 @end
 
@@ -672,6 +687,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	IOSConsoleKeys*		consoleKeys;
 	UIButton*			pdaCloseButton;	// over the PDA: close it
 	UIButton*			freezeExitButton;	// in Action Freeze: back to the game
+	UIButton*			menuKeysButton;		// over the menus: the keyboard, for their text fields
 	CAShapeLayer*		cheatEmblem;	// CHEAT's pentagram in a ring
 	UIView*				flash;			// the camera's flash
 	UILabel*			toast;			// "Saved to Photos"
@@ -843,6 +859,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	consoleCloseButton = [self roundButton:@"xmark" action:@selector(consoleCloseTapped)];
 	pdaCloseButton = [self roundButton:@"xmark" action:@selector(pdaCloseTapped)];
 	freezeExitButton = [self roundButton:@"xmark" action:@selector(freezeExitTapped)];
+	menuKeysButton = [self roundButton:@"keyboard" action:@selector(menuKeysTapped)];
 	[self makeWheel];
 	[self makeLevelPanel];
 
@@ -897,6 +914,14 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	[tick selectionChanged];
 }
 
+- (void)menuKeysTapped
+{
+	consoleKeys.toMenu = YES;
+	if (consoleKeys.isFirstResponder) [consoleKeys resignFirstResponder];
+	else [consoleKeys becomeFirstResponder];
+	[tick selectionChanged];
+}
+
 - (void)freezeExitTapped
 {
 	IOS_EndFreeze();
@@ -916,12 +941,13 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	[tick selectionChanged];
 }
 
-// Over the console only its own buttons take touches; the rest go on to
-// SDL's view, where a finger is the mouse
+// Over the console and the menus only their own buttons take touches; the
+// rest go on to SDL's view, where a finger is the mouse
 - (UIView*)hitTest:(CGPoint)p withEvent:(UIEvent*)event
 {
 	UIView* v = [super hitTest:p withEvent:event];
 	if (iosTouch_mode == IOSTOUCH_MODE_CONSOLE && v != consoleKeysButton && v != consoleCloseButton) return nil;
+	if (iosTouch_mode == IOSTOUCH_MODE_MENU && v != menuKeysButton) return nil;
 	return v;
 }
 
@@ -985,6 +1011,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	consoleKeysButton.center = aCentres[BTN_QLOAD];
 	pdaCloseButton.center = aCentres[BTN_MENU];
 	freezeExitButton.center = aCentres[BTN_MENU];
+	menuKeysButton.center = aCentres[BTN_MENU];
 	if (iosTouch_bWheelOpen) [self layoutWheel];
 }
 
@@ -1392,7 +1419,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 	switch (b) {
 	case BTN_RELOAD:	IOS_Impulse(13); break;			// IMPULSE_13: reload
 	case BTN_LIGHT:		IOS_Flashlight(); break;
-	case BTN_PDA:		IOS_Impulse(19); break;			// IMPULSE_19: the PDA
+	case BTN_PDA:		if (!iosTouch_bMultiplayer) IOS_Impulse(19); break;	// IMPULSE_19: the PDA (multiplayer: SCORES, held)
 	default:			break;
 	}
 }
@@ -1989,7 +2016,7 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 - (void)frame:(int)mode
 {
 	if (mode != iosTouch_mode) {
-		int wasConsole = iosTouch_mode == IOSTOUCH_MODE_CONSOLE;
+		int wasConsole = iosTouch_mode == IOSTOUCH_MODE_CONSOLE || iosTouch_mode == IOSTOUCH_MODE_MENU;
 		iosTouch_mode = mode;
 		[self releaseAll];
 		self.hidden = (mode == IOSTOUCH_MODE_HIDDEN);
@@ -1998,8 +2025,10 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		skipLabel.hidden = (mode != IOSTOUCH_MODE_SKIP);
 		consoleKeysButton.hidden = consoleCloseButton.hidden = (mode != IOSTOUCH_MODE_CONSOLE);
 		pdaCloseButton.hidden = (mode != IOSTOUCH_MODE_PDA);
+		menuKeysButton.hidden = (mode != IOSTOUCH_MODE_MENU);
 		// the keyboard comes up with the console, and goes with it
 		if (mode == IOSTOUCH_MODE_CONSOLE) {
+			consoleKeys.toMenu = NO;
 			[consoleKeys becomeFirstResponder];
 		} else if (wasConsole) {
 			[consoleKeys resignFirstResponder];
@@ -2007,6 +2036,11 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	}
 	if (mode == IOSTOUCH_MODE_GAMEPLAY) {
 		[self updateHolds];
+	}
+	if (IOS_Multiplayer() != iosTouch_bMultiplayer) {
+		iosTouch_bMultiplayer = IOS_Multiplayer();
+		aButtonViews[BTN_PDA].text = iosTouch_bMultiplayer ? @"SCORES" : @"PDA";
+		[self showButtons];
 	}
 	if (IOS_Frozen() != iosTouch_bFrozen) {
 		iosTouch_bFrozen = IOS_Frozen();
@@ -2024,14 +2058,14 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	iosTouch_GyroUpdate(mode == IOSTOUCH_MODE_GAMEPLAY, self);
 }
 
-// The buttons in play; in Action Freeze only CAMERA, JUMP and CROUCH (up
-// and down), and the X back to the game
+// The buttons in play (no CHEAT in multiplayer); in Action Freeze only
+// CAMERA, JUMP and CROUCH (up and down), and the X back to the game
 - (void)showButtons
 {
 	int bPlay = iosTouch_mode == IOSTOUCH_MODE_GAMEPLAY;
 	for (int i = 0; i < BTN_FIRST_TRAY; i++) {
 		int bFreezeButton = i == BTN_CAMERA || i == BTN_JUMP || i == BTN_CROUCH;
-		aButtonViews[i].hidden = !bPlay || (iosTouch_bFrozen && !bFreezeButton);
+		aButtonViews[i].hidden = !bPlay || (iosTouch_bFrozen && !bFreezeButton) || (i == BTN_CHEAT && iosTouch_bMultiplayer);
 	}
 	freezeExitButton.hidden = !bPlay || !iosTouch_bFrozen;
 }
@@ -2280,6 +2314,7 @@ void IOSTouch_TakeInput(iosTouchInput_t* input)
 		case BTN_FIRE:		if (!iosTouch_bFrozen) input->buttons |= IOSTOUCH_CMD_ATTACK; break;
 		case BTN_JUMP:		input->up = 127; break;
 		case BTN_CROUCH:	if (input->up == 0) input->up = -127; break;
+		case BTN_PDA:		if (iosTouch_bMultiplayer) input->buttons |= IOSTOUCH_CMD_SCORES; break;
 		}
 	}
 

@@ -32,6 +32,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "framework/Game.h"
 
 #include "framework/async/AsyncNetwork.h"
+#ifdef D3_IOS
+#include "sys/ios/ios_net.h"
+#endif
 
 const int MIN_RECONNECT_TIME			= 2000;
 const int EMPTY_RESEND_TIME				= 500;
@@ -181,6 +184,11 @@ void idAsyncServer::Spawn( void ) {
 
 	common->Printf( "Server spawned on port %i.\n", serverPort.GetPort() );
 
+#ifdef D3_IOS
+	// iOS: phones on the Wi-Fi find it with Bonjour (they can't broadcast)
+	IOSNet_Advertise( serverPort.GetPort(), cvarSystem->GetCVarString( "si_name" ) );
+#endif
+
 	// calculate a checksum on some of the essential data used
 	serverDataChecksum = declManager->GetChecksum();
 
@@ -206,6 +214,10 @@ void idAsyncServer::Kill( void ) {
 	if ( !active ) {
 		return;
 	}
+
+#ifdef D3_IOS
+	IOSNet_Advertise( 0, NULL );
+#endif
 
 	// drop all clients
 	for ( i = 0; i < MAX_ASYNC_CLIENTS; i++ ) {

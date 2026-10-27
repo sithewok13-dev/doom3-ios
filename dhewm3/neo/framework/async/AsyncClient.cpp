@@ -29,6 +29,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "sys/platform.h"
 #include "idlib/LangDict.h"
 #include "framework/async/AsyncNetwork.h"
+#ifdef D3_IOS
+#include "sys/ios/ios_net.h"
+#endif
 #include "framework/Licensee.h"
 #include "framework/Game.h"
 #include "framework/Session_local.h"
@@ -374,7 +377,43 @@ void idAsyncClient::GetLANServers( void ) {
 		broadcastAddress.port = PORT_SERVER + i;
 		clientPort.SendPacket( broadcastAddress, msg.GetData(), msg.GetSize() );
 	}
+
+#ifdef D3_IOS
+	// iOS: the broadcast above doesn't get out; ask each game Bonjour has
+	// found, directly (and the ones it finds next: IOS_QueryLANServer)
+	IOSNet_Browse();
+	char addresses[32][32];
+	int num = IOSNet_Servers( addresses, 32, 0 );
+	for ( i = 0; i < num; i++ ) {
+		IOS_QueryLANServer( addresses[i] );
+	}
+#endif
 }
+
+#ifdef D3_IOS
+/*
+==================
+idAsyncClient::IOS_QueryLANServer
+
+iOS: asks a game found on the Wi-Fi for its details, for the list of games
+being made (GetLANServers)
+==================
+*/
+void idAsyncClient::IOS_QueryLANServer( const char *address ) {
+	netadr_t	adr;
+	idBitMsg	msg;
+	byte		msgBuf[MAX_MESSAGE_SIZE];
+
+	if ( !idAsyncNetwork::LANServer.GetBool() || !clientPort.GetPort() || !Sys_StringToNetAdr( address, &adr, false ) ) {
+		return;
+	}
+	msg.Init( msgBuf, sizeof( msgBuf ) );
+	msg.WriteShort( CONNECTIONLESS_MESSAGE_ID );
+	msg.WriteString( "getInfo" );
+	msg.WriteInt( serverList.GetChallenge() );
+	clientPort.SendPacket( adr, msg.GetData(), msg.GetSize() );
+}
+#endif
 
 /*
 ==================
