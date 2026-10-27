@@ -107,6 +107,10 @@ void	IOS_SetCheat( int on );				// the cheat button: cheat mode on or off
 void	IOS_ToggleFly( void );				// FLY (noclip), in cheat mode
 void	IOS_GetCheats( int *on, int *flying );	// as the game has them now
 void	IOS_TakePhoto( int selfie );		// the camera: a photo, or a selfie (third person, from the front)
+void	IOS_StartFreeze( void );			// Action Freeze: the world stops, a free camera to look round it
+void	IOS_EndFreeze( void );
+void	IOS_CinemaBurst( void );			// five photos round the player, the world stopped meanwhile
+int		IOS_Frozen( void );					// Action Freeze (or the cinematic burst) is on
 int		IOS_InGame( void );					// a level is running, no menu over it
 
 // The levels of the game running (for the cheat's LEVEL), in its order

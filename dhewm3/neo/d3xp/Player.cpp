@@ -7629,6 +7629,7 @@ void idPlayer::Think( void ) {
 			noclip = !noclip;
 		}
 		IOS_CheatReport( godmode, noclip );
+		IOS_ViewReport( firstPersonViewOrigin.ToFloatPtr(), viewAngles.ToFloatPtr() );
 
 		// a tap puts away the tip or the objective showing
 		if ( IOS_TakeDismiss() && hud ) {
@@ -8844,6 +8845,28 @@ void idPlayer::CalculateRenderView( void ) {
 	if ( renderView->fov_y == 0 ) {
 		common->Error( "renderView->fov_y == 0" );
 	}
+
+#ifdef D3_IOS
+	// iOS: the camera's Action Freeze: the view from its free camera (the
+	// player's body in it, the view weapon not), kept out of the walls round
+	// what it circles
+	float camOrg[3], camAngles[3], camPivot[3];
+	int camHasPivot;
+	if ( entityNumber == gameLocal.localClientNum && IOS_FreezeCam( camOrg, camAngles, camPivot, &camHasPivot ) ) {
+		idVec3 org( camOrg[0], camOrg[1], camOrg[2] );
+		if ( camHasPivot ) {
+			trace_t tr;
+			idVec3 pivot( camPivot[0], camPivot[1], camPivot[2] );
+			gameLocal.clip.TracePoint( tr, pivot, org, MASK_SOLID, this );
+			if ( tr.fraction < 1.0f ) {
+				org = pivot + ( tr.endpos - pivot ) * 0.9f;
+			}
+		}
+		renderView->vieworg = org;
+		renderView->viewaxis = idAngles( camAngles[0], camAngles[1], camAngles[2] ).ToMat3();
+		renderView->viewID = 0;
+	}
+#endif
 
 	if ( g_showviewpos.GetBool() ) {
 		gameLocal.Printf( "%s : %s\n", renderView->vieworg.ToString(), renderView->viewaxis.ToAngles().ToString() );

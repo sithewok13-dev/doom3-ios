@@ -17,8 +17,12 @@
  *   weapon wheel (as the Jedi Knight port's), the game holding still.
  * - In the middle of the top row, CAMERA and CHEAT (as the Jedi Knight
  *   port's). CAMERA: a tap takes a photo of the game (no HUD), held still
- *   IOSTOUCH_SELFIE_HOLD a selfie, the view turned round to the player; both
- *   go to Photos. CHEAT, its pentagram in a ring, held IOSTOUCH_CHEAT_HOLD:
+ *   IOSTOUCH_SELFIE_HOLD a selfie, the view turned round to the player; slid
+ *   sideways a burst of photos for as long as it's held; slid down,
+ *   Action Freeze (the world stops; the stick, a drag and JUMP and CROUCH
+ *   fly a free camera round it, CAMERA takes photos, X goes back); slid up,
+ *   the cinematic burst (photos sweeping round the player in a stopped
+ *   moment). All go to Photos. CHEAT, its pentagram in a ring, held IOSTOUCH_CHEAT_HOLD:
  *   cheat mode on or off (god mode, every weapon and its ammo, the monsters
  *   taking no notice), red while on. In cheat mode JUMP held still
  *   IOSTOUCH_FLY_HOLD is FLY (noclip; JUMP rises then, and two quick taps on
@@ -113,6 +117,13 @@
 #define IOSTOUCH_FLY_TAP 0.25
 #define IOSTOUCH_FLY_DOUBLE 0.35
 #define IOSTOUCH_FLY_STILL 10.0
+// CAMERA slid sideways IOSTOUCH_WHEEL_OPEN_SLIDE: a burst, a photo every
+// IOSTOUCH_BURST_GAP while held, IOSTOUCH_BURST_MAX at most; slid mostly down
+// IOSTOUCH_FREEZE_SWIPE (further, so not by chance): Action Freeze; up as
+// far: the cinematic burst
+#define IOSTOUCH_BURST_GAP 0.25
+#define IOSTOUCH_BURST_MAX 20
+#define IOSTOUCH_FREEZE_SWIPE 40.0
 // CAMERA and CHEAT sit in the middle of the top row, this far apart
 #define IOSTOUCH_MID_STEP 100.0
 // The cheat's red (its pentagram and edge while on)
@@ -211,6 +222,10 @@ typedef struct {
 	int				wheelSlot;		// the slice it points at (-1 none, IOSTOUCH_WHEEL_CANCEL)
 	CGFloat			wheelAim;		// the way it points (degrees)
 	CGPoint			wheelOrigin;	// where its slide is measured from
+	// CAMERA's burst
+	int				bBurst;
+	int				burstCount;
+	CFTimeInterval	burstNext;
 } iosTouchSlot_t;
 
 static iosTouchSlot_t iosTouch_aSlots[IOSTOUCH_MAX_TOUCHES];
@@ -235,6 +250,8 @@ static int iosTouch_bOptsOpen;
 static int iosTouch_bCheatOn;
 static int iosTouch_bFlying;
 static CFTimeInterval iosTouch_jumpTapUp = -1.0;	// a quick tap on JUMP lifted then, while flying
+// Action Freeze (or the cinematic burst) on, as last read
+static int iosTouch_bFrozen;
 
 // ---------------------------------------------------------------- the weapon wheel
 
@@ -654,6 +671,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	UIButton*			consoleCloseButton;	// and close it
 	IOSConsoleKeys*		consoleKeys;
 	UIButton*			pdaCloseButton;	// over the PDA: close it
+	UIButton*			freezeExitButton;	// in Action Freeze: back to the game
 	CAShapeLayer*		cheatEmblem;	// CHEAT's pentagram in a ring
 	UIView*				flash;			// the camera's flash
 	UILabel*			toast;			// "Saved to Photos"
@@ -824,6 +842,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	consoleKeysButton = [self roundButton:@"keyboard" action:@selector(consoleKeysTapped)];
 	consoleCloseButton = [self roundButton:@"xmark" action:@selector(consoleCloseTapped)];
 	pdaCloseButton = [self roundButton:@"xmark" action:@selector(pdaCloseTapped)];
+	freezeExitButton = [self roundButton:@"xmark" action:@selector(freezeExitTapped)];
 	[self makeWheel];
 	[self makeLevelPanel];
 
@@ -875,6 +894,12 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	} else {
 		[consoleKeys becomeFirstResponder];
 	}
+	[tick selectionChanged];
+}
+
+- (void)freezeExitTapped
+{
+	IOS_EndFreeze();
 	[tick selectionChanged];
 }
 
@@ -959,6 +984,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	consoleCloseButton.center = aCentres[BTN_MENU];
 	consoleKeysButton.center = aCentres[BTN_QLOAD];
 	pdaCloseButton.center = aCentres[BTN_MENU];
+	freezeExitButton.center = aCentres[BTN_MENU];
 	if (iosTouch_bWheelOpen) [self layoutWheel];
 }
 
@@ -1250,6 +1276,24 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			break;
 		case ROLE_BUTTON: {
 			const iosTouchButton_t* b = &iosTouch_aButtons[s->button];
+			if (s->button == BTN_CAMERA && !s->bDone && !iosTouch_bFrozen) {
+				// slid: sideways a burst, down Action Freeze, up the cinematic burst
+				CGFloat sx = p.x - s->start.x, sy = p.y - s->start.y;
+				if (hypot(sx, sy) >= IOSTOUCH_WHEEL_OPEN_SLIDE && fabs(sx) > fabs(sy)) {
+					s->bDone = 1;
+					s->bBurst = 1;
+					s->burstCount = 0;
+					s->burstNext = [NSProcessInfo processInfo].systemUptime;
+				} else if (sy >= IOSTOUCH_FREEZE_SWIPE && sy > fabs(sx)) {
+					s->bDone = 1;
+					IOS_StartFreeze();
+					[thump impactOccurred];
+				} else if (-sy >= IOSTOUCH_FREEZE_SWIPE && -sy > fabs(sx)) {
+					s->bDone = 1;
+					IOS_CinemaBurst();
+					[thump impactOccurred];
+				}
+			}
 			if (b->kind == KIND_WHEEL && hypot(p.x - s->start.x, p.y - s->start.y) >= IOSTOUCH_WHEEL_OPEN_SLIDE) {
 				// NEXT WPN slid: the wheel opens at once, to slide to a weapon
 				[self openWheelFrom:s held:0];
@@ -1360,7 +1404,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		if (s->bInside && !s->bDone) IOS_TakePhoto(0);
 		return;
 	}
-	if (b == BTN_JUMP && iosTouch_bFlying) {
+	if (b == BTN_JUMP && iosTouch_bFlying && !iosTouch_bFrozen) {
 		// flying: two quick taps stop it
 		CFTimeInterval now = [NSProcessInfo processInfo].systemUptime;
 		if (now - s->startTime < IOSTOUCH_FLY_TAP) {
@@ -1437,6 +1481,15 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 	CGFloat aFill[NUM_BUTTONS] = { 0 };
 	for (int i = 0; i < IOSTOUCH_MAX_TOUCHES; i++) {
 		iosTouchSlot_t* s = &iosTouch_aSlots[i];
+		if (s->touch && s->role == ROLE_BUTTON && s->bBurst) {
+			// CAMERA's burst: a photo every IOSTOUCH_BURST_GAP while held
+			if (now >= s->burstNext && s->burstCount < IOSTOUCH_BURST_MAX) {
+				IOS_TakePhoto(0);
+				s->burstCount++;
+				s->burstNext = now + IOSTOUCH_BURST_GAP;
+			}
+			continue;
+		}
 		if (!s->touch || s->role != ROLE_BUTTON || s->bDone) continue;
 		int b = s->button;
 		double hold = (iosTouch_aButtons[b].kind == KIND_HOLDTAP) ? IOSTOUCH_QUICKSAVE_HOLD
@@ -1444,7 +1497,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 					: (b == BTN_NEXTWPN) ? IOSTOUCH_WHEEL_HOLD
 					: (b == BTN_CAMERA) ? IOSTOUCH_SELFIE_HOLD
 					: (b == BTN_CHEAT) ? IOSTOUCH_CHEAT_HOLD
-					: (b == BTN_JUMP && iosTouch_bCheatOn && !iosTouch_bFlying) ? IOSTOUCH_FLY_HOLD : 0.0;
+					: (b == BTN_JUMP && iosTouch_bCheatOn && !iosTouch_bFlying && !iosTouch_bFrozen) ? IOSTOUCH_FLY_HOLD : 0.0;
 		if (hold <= 0.0) continue;
 		if (!s->bInside) continue;	// slid off: cancelled
 		if (b == BTN_JUMP && hypot(s->last.x - s->start.x, s->last.y - s->start.y) >= IOSTOUCH_FLY_STILL) {
@@ -1941,9 +1994,7 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		[self releaseAll];
 		self.hidden = (mode == IOSTOUCH_MODE_HIDDEN);
 		self.userInteractionEnabled = !self.hidden;	// hidden: a finger is SDL's mouse
-		for (int i = 0; i < BTN_FIRST_TRAY; i++) {
-			aButtonViews[i].hidden = (mode != IOSTOUCH_MODE_GAMEPLAY);
-		}
+		[self showButtons];
 		skipLabel.hidden = (mode != IOSTOUCH_MODE_SKIP);
 		consoleKeysButton.hidden = consoleCloseButton.hidden = (mode != IOSTOUCH_MODE_CONSOLE);
 		pdaCloseButton.hidden = (mode != IOSTOUCH_MODE_PDA);
@@ -1957,6 +2008,12 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	if (mode == IOSTOUCH_MODE_GAMEPLAY) {
 		[self updateHolds];
 	}
+	if (IOS_Frozen() != iosTouch_bFrozen) {
+		iosTouch_bFrozen = IOS_Frozen();
+		[self releaseAll];
+		[self showButtons];
+		if (iosTouch_bFrozen) [self showToast:@"Action Freeze: CAMERA takes photos"];
+	}
 	int bCheat, bFlying;
 	IOS_GetCheats(&bCheat, &bFlying);
 	if (bCheat != iosTouch_bCheatOn || bFlying != iosTouch_bFlying) {
@@ -1965,6 +2022,18 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		[self refreshCheatLooks];
 	}
 	iosTouch_GyroUpdate(mode == IOSTOUCH_MODE_GAMEPLAY, self);
+}
+
+// The buttons in play; in Action Freeze only CAMERA, JUMP and CROUCH (up
+// and down), and the X back to the game
+- (void)showButtons
+{
+	int bPlay = iosTouch_mode == IOSTOUCH_MODE_GAMEPLAY;
+	for (int i = 0; i < BTN_FIRST_TRAY; i++) {
+		int bFreezeButton = i == BTN_CAMERA || i == BTN_JUMP || i == BTN_CROUCH;
+		aButtonViews[i].hidden = !bPlay || (iosTouch_bFrozen && !bFreezeButton);
+	}
+	freezeExitButton.hidden = !bPlay || !iosTouch_bFrozen;
 }
 
 // CHEAT red while cheat mode is on; JUMP says FLY under it then (lit while
@@ -2208,7 +2277,7 @@ void IOSTouch_TakeInput(iosTouchInput_t* input)
 		const iosTouchSlot_t* s = &iosTouch_aSlots[i];
 		if (!s->touch || s->role != ROLE_BUTTON) continue;
 		switch (s->button) {
-		case BTN_FIRE:		input->buttons |= IOSTOUCH_CMD_ATTACK; break;
+		case BTN_FIRE:		if (!iosTouch_bFrozen) input->buttons |= IOSTOUCH_CMD_ATTACK; break;
 		case BTN_JUMP:		input->up = 127; break;
 		case BTN_CROUCH:	if (input->up == 0) input->up = -127; break;
 		}

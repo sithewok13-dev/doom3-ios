@@ -86,6 +86,31 @@ static int photoTime;
 static const int SELFIE_TURN_MSEC = 150;
 static const char * const PHOTO_FILE = "ios_photo.png";
 
+// Action Freeze: the world stopped (g_stopTime: only the player thinks), and
+// a free camera the stick, a drag (the look) and JUMP and CROUCH (up and
+// down) move, starting at the player's view; the player stays still. The
+// cinematic burst: IOS_CINEMA_SHOTS photos from in front of the player,
+// round it, IOS_CINEMA_MSEC apart (the view drawn from each before it's
+// taken), then the world goes on.
+static const float IOS_FREEZE_SPEED = 4.0f;		// units a usercmd, the stick right out
+static const int IOS_CINEMA_SHOTS = 5;
+static const int IOS_CINEMA_MSEC = 120;
+static const float IOS_CINEMA_RANGE = 90.0f;
+static const float IOS_CINEMA_STEP = 30.0f;		// degrees round between shots
+static bool frozen;
+static idVec3 freezeOrg;
+static idAngles freezeAngles;
+static bool freezePivotOn;
+static idVec3 freezePivot;
+static idStr freezeStopTime, freezeHud;
+static idVec3 viewOrg;
+static idAngles viewAngles( 0.0f, 0.0f, 0.0f );
+static int cinemaShot = -1;		// the next one (-1: no burst)
+static bool cinemaPlaced;
+static int cinemaTime;
+
+static void IOS_Shoot( void );
+
 static bool skipAsked;
 static bool closeConsoleAsked;
 static idList<sysEvent_t> consoleEvents;
@@ -174,9 +199,97 @@ int IOS_InGame( void ) {
 	return sessLocal.mapSpawned && sessLocal.guiActive == NULL && !console->Active();
 }
 
+void IOS_ViewReport( const float *org, const float *angles ) {
+	viewOrg.Set( org[0], org[1], org[2] );
+	viewAngles.Set( angles[0], angles[1], angles[2] );
+}
+
+int IOS_FreezeCam( float *org, float *angles, float *pivot, int *hasPivot ) {
+	if ( !frozen ) {
+		return 0;
+	}
+	for ( int i = 0; i < 3; i++ ) {
+		org[i] = freezeOrg[i];
+		angles[i] = freezeAngles[i];
+		pivot[i] = freezePivot[i];
+	}
+	*hasPivot = freezePivotOn;
+	return 1;
+}
+
+int IOS_Frozen( void ) {
+	return frozen;
+}
+
+void IOS_StartFreeze( void ) {
+	if ( frozen || !IOS_InGame() ) {
+		return;
+	}
+	frozen = true;
+	freezeOrg = viewOrg;
+	freezeAngles = viewAngles;
+	freezeAngles.roll = 0.0f;
+	freezePivotOn = false;
+	freezeStopTime = cvarSystem->GetCVarString( "g_stopTime" );
+	freezeHud = cvarSystem->GetCVarString( "g_showHud" );
+	cvarSystem->SetCVarBool( "g_stopTime", true );
+	cvarSystem->SetCVarBool( "g_showHud", false );
+}
+
+void IOS_EndFreeze( void ) {
+	if ( !frozen ) {
+		return;
+	}
+	frozen = false;
+	cinemaShot = -1;
+	cvarSystem->SetCVarString( "g_stopTime", freezeStopTime );
+	cvarSystem->SetCVarString( "g_showHud", freezeHud );
+}
+
+void IOS_CinemaBurst( void ) {
+	if ( frozen ) {
+		return;
+	}
+	IOS_StartFreeze();
+	if ( frozen ) {
+		cinemaShot = 0;
+		cinemaPlaced = false;
+		cinemaTime = Sys_Milliseconds();
+	}
+}
+
+// the cinematic burst: each shot's camera placed, drawn, then taken
+static void IOS_DoCinema( void ) {
+	if ( cinemaShot < 0 ) {
+		return;
+	}
+	if ( !IOS_InGame() ) {
+		IOS_EndFreeze();
+		return;
+	}
+	if ( !cinemaPlaced ) {
+		// in front of the player, looking back at them, sweeping round
+		float yaw = viewAngles.yaw + 180.0f + ( cinemaShot - ( IOS_CINEMA_SHOTS - 1 ) * 0.5f ) * IOS_CINEMA_STEP;
+		freezePivot = viewOrg - idVec3( 0.0f, 0.0f, 12.0f );
+		freezePivotOn = true;
+		idVec3 dir = idAngles( 0.0f, yaw, 0.0f ).ToForward();
+		freezeOrg = freezePivot + dir * IOS_CINEMA_RANGE + idVec3( 0.0f, 0.0f, 16.0f );
+		freezeAngles.Set( 8.0f, yaw + 180.0f, 0.0f );
+		cinemaPlaced = true;
+		cinemaTime = Sys_Milliseconds();
+	} else if ( Sys_Milliseconds() - cinemaTime >= IOS_CINEMA_MSEC ) {
+		IOS_Shoot();
+		cinemaPlaced = false;
+		if ( ++cinemaShot >= IOS_CINEMA_SHOTS ) {
+			IOS_EndFreeze();
+		}
+	}
+}
+
 void IOS_TakePhoto( int selfie ) {
 	if ( photoState == PHOTO_NONE ) {
-		photoState = selfie ? SELFIE_ASKED : PHOTO_ASKED;
+		// (frozen, the free camera's view is the photo)
+		photoState = ( selfie && !frozen ) ? SELFIE_ASKED : PHOTO_ASKED;
 	}
 }
 
@@ -445,6 +558,7 @@ menus, where a finger is the mouse.
 void IOS_TouchFrame( void ) {
 	IOS_DoAsked();
 	IOS_DoPhoto();
+	IOS_DoCinema();
 
 	bool gameFresh = Sys_Milliseconds() - gameReport.time < GAME_REPORT_MSEC;
 	int mode = IOSTOUCH_MODE_HIDDEN;
@@ -462,8 +576,9 @@ void IOS_TouchFrame( void ) {
 		}
 	}
 	if ( mode != IOSTOUCH_MODE_GAMEPLAY ) {
-		// (the wheel closes with the controls)
+		// (the wheel closes with the controls, and Action Freeze ends)
 		gameHeld = false;
+		IOS_EndFreeze();
 	}
 	IOSTouch_Frame( mode );
 }
@@ -479,6 +594,21 @@ had their say: what the touch controls hold now.
 void IOS_AddTouchToUsercmd( usercmd_t &cmd, idVec3 &viewangles ) {
 	iosTouchInput_t in;
 	IOSTouch_TakeInput( &in );
+
+	if ( frozen ) {
+		// Action Freeze: the touches fly the free camera, the player stays
+		if ( cinemaShot < 0 ) {
+			freezeAngles.yaw += in.yaw;
+			freezeAngles.pitch = idMath::ClampFloat( -89.0f, 89.0f, freezeAngles.pitch + in.pitch );
+			idVec3 forward, right;
+			freezeAngles.ToVectors( &forward, &right, NULL );
+			freezeOrg += forward * ( in.forward / 127.0f * IOS_FREEZE_SPEED );
+			freezeOrg += right * ( in.right / 127.0f * IOS_FREEZE_SPEED );
+			freezeOrg.z += in.up / 127.0f * IOS_FREEZE_SPEED;
+		}
+		numImpulses = 0;
+		return;
+	}
 
 	if ( in.forward != 0 ) {
 		cmd.forwardmove = idMath::ClampChar( in.forward );

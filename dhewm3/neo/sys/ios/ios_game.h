@@ -64,6 +64,13 @@ int		IOS_CheatWanted( int *serial );
 int		IOS_TakeFly( void );
 void	IOS_CheatReport( int god, int noclip );
 
+// The camera's Action Freeze: where the player's view is now (the free
+// camera starts there); and whether the view is the free camera's, from org
+// looking along angles (pitch, yaw, roll) -- circling pivot (*hasPivot),
+// when it's to be kept out of the walls between them
+void	IOS_ViewReport( const float *org, const float *angles );
+int		IOS_FreezeCam( float *org, float *angles, float *pivot, int *hasPivot );
+
 #ifdef __cplusplus
 }
 #endif
