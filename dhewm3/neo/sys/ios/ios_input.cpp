@@ -35,6 +35,7 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 #include "framework/KeyInput.h"
 #include "framework/UsercmdGen.h"
 #include "framework/Session_local.h"
+#include "ui/UserInterface.h"
 #include "sys/sys_public.h"
 #include "sys/ios/ios_touch.h"
 #include "sys/ios/ios_game.h"
@@ -64,6 +65,9 @@ static int weaponPick = -1;
 
 // the weapon wheel is open: no game frames run (as under a menu)
 static bool gameHeld;
+
+// a tap asked the tip or objective showing to go
+static bool dismissAsked;
 
 static bool skipAsked;
 static bool closeConsoleAsked;
@@ -118,18 +122,35 @@ bool IOS_GameHeld( void ) {
 	return gameHeld;
 }
 
+void IOS_Dismiss( void ) {
+	dismissAsked = true;
+}
+
+int IOS_TakeDismiss( void ) {
+	int asked = dismissAsked;
+	dismissAsked = false;
+	return asked;
+}
+
 /*
 ================
-IOS_GuiTouch
+IOS_RouteGuiTouch
 
-Where a finger on the PDA is, in its 640 x 480: the PDA is drawn 4:3 in the
-middle of the screen (r_scaleMenusTo43), as the menus are.
+A finger on the PDA: its cursor goes where the finger is, in its 640 x 480
+(the PDA is drawn 4:3 in the middle of the screen, r_scaleMenusTo43, as the
+menus are), and dragged, the text or list under it scrolls with it, about a
+line for each line's height dragged. (The click is the touch controls'
+attack, on a tap: IOSTouch_TakeInput.)
 ================
 */
-int IOS_GuiTouch( float *x, float *y ) {
+static const float IOS_GUI_LINE = 16.0f;	// a PDA line's height, about (640 x 480)
+
+void IOS_RouteGuiTouch( void *gui ) {
+	idUserInterface *ui = (idUserInterface *)gui;
 	float px, py, w, h;
+	float dy = IOSTouch_TakeGuiScroll();
 	if ( !IOSTouch_GuiTouch( &px, &py, &w, &h ) || w <= 0.0f || h <= 0.0f ) {
-		return 0;
+		return;
 	}
 	float w43 = w, h43 = h;
 	if ( w * 3.0f > h * 4.0f ) {
@@ -137,9 +158,13 @@ int IOS_GuiTouch( float *x, float *y ) {
 	} else {
 		h43 = w * 3.0f / 4.0f;
 	}
-	*x = idMath::ClampFloat( 0.0f, (float)SCREEN_WIDTH, ( px - ( w - w43 ) * 0.5f ) * SCREEN_WIDTH / w43 );
-	*y = idMath::ClampFloat( 0.0f, (float)SCREEN_HEIGHT, ( py - ( h - h43 ) * 0.5f ) * SCREEN_HEIGHT / h43 );
-	return 1;
+	float x = idMath::ClampFloat( 0.0f, (float)SCREEN_WIDTH, ( px - ( w - w43 ) * 0.5f ) * SCREEN_WIDTH / w43 );
+	float y = idMath::ClampFloat( 0.0f, (float)SCREEN_HEIGHT, ( py - ( h - h43 ) * 0.5f ) * SCREEN_HEIGHT / h43 );
+	ui->SetCursor( x, y );
+	if ( dy != 0.0f ) {
+		// the finger up shows what's further down
+		IOS_ScrollGuiAt( ui, x, y, -dy * SCREEN_HEIGHT / h43 / IOS_GUI_LINE );
+	}
 }
 
 void IOS_Impulse( int impulse ) {

@@ -48,9 +48,13 @@ void	IOS_WeaponSlot( int slot, const char *className, const char *name, int owne
 // the slot picked on the wheel since the last call, or -1
 int		IOS_TakeWeaponPick( void );
 
-// the PDA: where a finger on it puts the cursor (in the GUI's 640 x 480),
-// if one is down
-int		IOS_GuiTouch( float *x, float *y );
+// the PDA (an idUserInterface): a finger on it puts its cursor where it is,
+// and dragged scrolls the text or list under it
+void	IOS_RouteGuiTouch( void *gui );
+
+// a tap on the screen since the last call: the tip or the objective showing
+// goes away
+int		IOS_TakeDismiss( void );
 
 #ifdef __cplusplus
 }

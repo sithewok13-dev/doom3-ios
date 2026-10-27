@@ -86,6 +86,7 @@ enum {
 void	IOSTouch_Frame( int mode );						// once a frame, on the main thread
 void	IOSTouch_TakeInput( iosTouchInput_t *input );	// as each usercmd is built
 int		IOSTouch_GuiTouch( float *x, float *y, float *w, float *h );	// a finger on the PDA: where, and the screen's size (points)
+float	IOSTouch_TakeGuiScroll( void );	// how far (points, + down) it dragged since the last call
 
 // the engine (sys/ios/ios_input.cpp), for the overlay
 void	IOS_Impulse( int impulse );			// a weapon slot, reload, next weapon, the PDA...
@@ -100,6 +101,7 @@ void	IOS_CloseConsole( void );
 int		IOS_GetWeapons( iosTouchWeapon_t *out, int max, int *current );	// the weapon wheel's slots, in the game's order
 void	IOS_PickWeapon( int slot );			// switch to it
 void	IOS_HoldGame( int hold );			// the game holds still while the wheel is open
+void	IOS_Dismiss( void );				// a tap: the tip or objective showing goes away
 
 #ifdef __cplusplus
 }

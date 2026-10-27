@@ -7603,6 +7603,16 @@ void idPlayer::Think( void ) {
 	if ( entityNumber == gameLocal.localClientNum ) {
 		IOS_GameReport( objectiveSystemOpen, gameLocal.inCinematic );
 
+		// a tap puts away the tip or the objective showing
+		if ( IOS_TakeDismiss() && hud ) {
+			if ( tipUp ) {
+				HideTip();
+			}
+			if ( objectiveUp ) {
+				HideObjective();
+			}
+		}
+
 		// the weapon wheel: what it picked, and what it shows
 		int pick = IOS_TakeWeaponPick();
 		if ( pick >= 0 ) {
@@ -7781,10 +7791,9 @@ void idPlayer::RouteGuiMouse( idUserInterface *gui ) {
 	sysEvent_t ev;
 
 #ifdef D3_IOS
-	// iOS: a finger on the PDA puts its cursor under it
-	float touchX, touchY;
-	if ( gui == objectiveSystem && IOS_GuiTouch( &touchX, &touchY ) ) {
-		gui->SetCursor( touchX, touchY );
+	// iOS: a finger on the PDA is its mouse
+	if ( gui == objectiveSystem ) {
+		IOS_RouteGuiTouch( gui );
 	}
 #endif
 

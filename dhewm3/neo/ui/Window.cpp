@@ -28,6 +28,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "sys/platform.h"
 #include "idlib/containers/HashTable.h"
+#include "idlib/LangDict.h"
 #include "framework/UsercmdGen.h"
 #include "framework/KeyInput.h"
 #include "ui/DeviceContext.h"
@@ -122,6 +123,10 @@ idWindow::CommonInit
 ================
 */
 void idWindow::CommonInit() {
+#ifdef D3_IOS
+	iosOffset.Zero();
+	iosObjectiveFound = false;
+#endif
 	childID = 0;
 	flags = 0;
 	lastTimeRun = 0;
@@ -684,6 +689,167 @@ void idWindow::RunNamedEvent ( const char* eventName )
 		children[i]->RunNamedEvent ( eventName );
 	}
 }
+
+#ifdef D3_IOS
+/*
+================
+iOS: the HUD's objective pop-up
+
+The HUD is the 640 x 480 of the PC game stretched across the screen, which
+puts the objective pop-up ("NEW OBJECTIVE", its title, text and picture) at
+the right, under the touch controls' buttons. On iOS it is drawn at the top
+in the middle instead, just under the top row of buttons.
+
+The parts that show it are found by what they say (the objective's title
+and text the game sets, the words "objective"), not by name, so a HUD that
+lays it out differently is moved all the same.
+================
+*/
+static const float IOS_OBJECTIVE_TOP = 62.0f;	// (480 high: just under the top row)
+
+static bool IOS_IsObjectiveText( idWinStr &text ) {
+	if ( idStr::Icmpn( text.GetName(), "objective", 9 ) == 0 ) {
+		return true;
+	}
+	const char *s = text.c_str();
+	if ( s[0] == '#' ) {
+		s = common->GetLanguageDict()->GetString( s );
+	}
+	return idStr::FindText( s, "objective", false ) >= 0;
+}
+
+void idWindow::IOS_FindObjective( idWindow *w ) {
+	for ( int i = 0; i < w->drawWindows.Num(); i++ ) {
+		drawWin_t &d = w->drawWindows[i];
+		if ( d.win ) {
+			if ( IOS_IsObjectiveText( d.win->text ) ) {
+				iosObjectiveParts.Append( d );
+			}
+			IOS_FindObjective( d.win );
+		} else if ( d.simp && IOS_IsObjectiveText( d.simp->text ) ) {
+			iosObjectiveParts.Append( d );
+		}
+	}
+}
+
+// the window (or simple window) d's rect in this desktop's 640 x 480, and
+// its window right under the desktop (NULL: it is right under it)
+idRectangle idWindow::IOS_DesktopRect( const drawWin_t &d, idWindow **topParent ) {
+	idWindow *desktop = this;
+	idRectangle r = d.win ? (idRectangle)d.win->rect : (idRectangle)d.simp->rect;
+	idWindow *p = d.win ? d.win->GetParent() : d.simp->GetParent();
+	*topParent = NULL;
+	while ( p && p != desktop ) {
+		r.x += p->rect.x();
+		r.y += p->rect.y();
+		*topParent = p;
+		p = p->GetParent();
+	}
+	return r;
+}
+
+void idWindow::IOS_PlaceObjective() {
+	if ( !iosObjectiveFound ) {
+		iosObjectiveFound = true;
+		if ( idStr::FindText( gui->GetSourceFile(), "hud", false ) < 0 ) {
+			return;
+		}
+		IOS_FindObjective( this );
+		// what moves: each part's window under the desktop, with all under it
+		for ( int i = 0; i < iosObjectiveParts.Num(); i++ ) {
+			idWindow *top;
+			IOS_DesktopRect( iosObjectiveParts[i], &top );
+			drawWin_t m = iosObjectiveParts[i];
+			if ( top ) {
+				m.win = top;
+				m.simp = NULL;
+			}
+			bool known = false;
+			for ( int j = 0; j < iosObjectiveMovers.Num() && !known; j++ ) {
+				known = iosObjectiveMovers[j].win == m.win && iosObjectiveMovers[j].simp == m.simp;
+			}
+			if ( !known ) {
+				iosObjectiveMovers.Append( m );
+			}
+		}
+		// (a part right under the desktop, the size of the screen, would move
+		// the whole HUD: then nothing moves)
+		for ( int j = 0; j < iosObjectiveMovers.Num(); j++ ) {
+			const drawWin_t &m = iosObjectiveMovers[j];
+			idRectangle r = m.win ? (idRectangle)m.win->rect : (idRectangle)m.simp->rect;
+			if ( r.w >= SCREEN_WIDTH * 0.9f && r.h >= SCREEN_HEIGHT * 0.9f ) {
+				iosObjectiveMovers.Clear();
+				break;
+			}
+		}
+	}
+	if ( iosObjectiveMovers.Num() == 0 ) {
+		return;
+	}
+
+	// where the parts are now, all together; moved to the top in the middle
+	idRectangle all;
+	bool any = false;
+	for ( int i = 0; i < iosObjectiveParts.Num(); i++ ) {
+		idWindow *top;
+		idRectangle r = IOS_DesktopRect( iosObjectiveParts[i], &top );
+		if ( r.w <= 0.0f || r.h <= 0.0f ) {
+			continue;
+		}
+		if ( !any ) {
+			all = r;
+			any = true;
+		} else {
+			float x1 = Max( all.x + all.w, r.x + r.w ), y1 = Max( all.y + all.h, r.y + r.h );
+			all.x = Min( all.x, r.x );
+			all.y = Min( all.y, r.y );
+			all.w = x1 - all.x;
+			all.h = y1 - all.y;
+		}
+	}
+	if ( !any ) {
+		return;
+	}
+	idVec2 offset( ( SCREEN_WIDTH - all.w ) * 0.5f - all.x, IOS_OBJECTIVE_TOP - all.y );
+	for ( int j = 0; j < iosObjectiveMovers.Num(); j++ ) {
+		if ( iosObjectiveMovers[j].win ) {
+			iosObjectiveMovers[j].win->iosOffset = offset;
+		} else {
+			iosObjectiveMovers[j].simp->iosOffset = offset;
+		}
+	}
+}
+
+/*
+================
+idWindow::IOS_ScrollAt
+
+The deepest window under x, y with a scroll bar (an edit window's text, a
+list) scrolls by lines: smoothly, as the text is drawn from the scroll
+bar's value.
+================
+*/
+bool idWindow::IOS_ScrollAt( float x, float y, float lines ) {
+	if ( !visible ) {
+		return false;
+	}
+	// the windows drawn last are on top
+	for ( int i = children.Num() - 1; i >= 0; i-- ) {
+		idWindow *child = children[i];
+		if ( child->visible && child->Contains( x, y ) && child->IOS_ScrollAt( x, y, lines ) ) {
+			return true;
+		}
+	}
+	for ( int i = 0; i < children.Num(); i++ ) {
+		idSliderWindow *slider = dynamic_cast<idSliderWindow *>( children[i] );
+		if ( slider && idStr::Icmp( slider->GetName(), "_scrollerWinV" ) == 0 ) {
+			slider->SetValue( idMath::ClampFloat( slider->GetLow(), slider->GetHigh(), slider->GetValue() + lines ) );
+			return true;
+		}
+	}
+	return false;
+}
+#endif
 
 /*
 ================
@@ -1361,13 +1527,27 @@ void idWindow::Redraw(float x, float y) {
 		DebugDraw(time, x, y);
 	}
 
+#ifdef D3_IOS
+	if ( flags & WIN_DESKTOP ) {
+		IOS_PlaceObjective();
+	}
+#endif
+
 	int c = drawWindows.Num();
 	for ( int i = 0; i < c; i++ ) {
+#ifdef D3_IOS
+		if ( drawWindows[i].win ) {
+			drawWindows[i].win->Redraw( clientRect.x + xOffset + drawWindows[i].win->iosOffset.x, clientRect.y + yOffset + drawWindows[i].win->iosOffset.y );
+		} else {
+			drawWindows[i].simp->Redraw( clientRect.x + xOffset + drawWindows[i].simp->iosOffset.x, clientRect.y + yOffset + drawWindows[i].simp->iosOffset.y );
+		}
+#else
 		if ( drawWindows[i].win ) {
 			drawWindows[i].win->Redraw( clientRect.x + xOffset, clientRect.y + yOffset );
 		} else {
 			drawWindows[i].simp->Redraw( clientRect.x + xOffset, clientRect.y + yOffset );
 		}
+#endif
 	}
 
 	// Put transforms back to what they were before the children were processed

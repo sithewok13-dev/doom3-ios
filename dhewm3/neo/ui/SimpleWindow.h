@@ -49,6 +49,9 @@ public:
 	void			StateChanged( bool redraw );
 
 	idStr			name;
+#ifdef D3_IOS
+	idVec2			iosOffset;	// (see idWindow's)
+#endif
 
 	idWinVar *		GetWinVarByName(const char *_name);
 	intptr_t		GetWinVarOffset( idWinVar *wv, drawWin_t* owner);

@@ -35,6 +35,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "ui/SimpleWindow.h"
 
 idSimpleWindow::idSimpleWindow(idWindow *win) {
+#ifdef D3_IOS
+	iosOffset.Zero();
+#endif
 	gui = win->GetGui();
 	dc = win->dc;
 	drawRect = win->drawRect;

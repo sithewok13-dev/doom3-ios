@@ -37,6 +37,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "ui/UserInterfaceLocal.h"
 
 #include "renderer/tr_local.h" // glConfig for winWidth/winHeight
+#ifdef D3_IOS
+#include "sys/ios/ios_input.h"
+#endif
 
 extern idCVar r_skipGuiShaders;		// 1 = don't render any gui elements on surfaces
 extern idCVar r_scaleMenusTo43; // DG: for the "scale menus to 4:3" hack
@@ -880,3 +883,19 @@ bool idUserInterfaceLocal::MaybeSetCstWinRegs(bool force) {
 
 	return true;
 }
+
+#ifdef D3_IOS
+/*
+================
+IOS_ScrollGuiAt
+
+iOS: a finger dragged on the PDA (sys/ios/ios_input.cpp)
+================
+*/
+void IOS_ScrollGuiAt( idUserInterface *gui, float x, float y, float lines ) {
+	idWindow *desktop = static_cast<idUserInterfaceLocal *>( gui )->GetDesktop();
+	if ( desktop ) {
+		desktop->IOS_ScrollAt( x, y, lines );
+	}
+}
+#endif

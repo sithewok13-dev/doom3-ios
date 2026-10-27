@@ -179,6 +179,15 @@ public:
 	idWindow(idDeviceContext *d, idUserInterfaceLocal *gui);
 	virtual ~idWindow();
 
+#ifdef D3_IOS
+	// iOS: drawn this far from where it is (the HUD's objective pop-up,
+	// moved out from under the touch controls: IOS_PlaceObjective)
+	idVec2			iosOffset;
+	// iOS: a finger dragged on the window under x, y (the PDA's text and
+	// lists): scrolled by lines, if it has a scroll bar
+	bool			IOS_ScrollAt( float x, float y, float lines );
+#endif
+
 	enum {
 		ON_MOUSEENTER = 0,
 		ON_MOUSEEXIT,
@@ -426,6 +435,15 @@ protected:
 	idWindow *parent;				// parent window
 	idList<idWindow*> children;		// child windows
 	idList<drawWin_t> drawWindows;
+
+#ifdef D3_IOS
+	void			IOS_FindObjective( idWindow *w );
+	void			IOS_PlaceObjective();
+	idRectangle		IOS_DesktopRect( const drawWin_t &d, idWindow **topParent );
+	bool			iosObjectiveFound;			// (the HUD's desktop: looked for it)
+	idList<drawWin_t> iosObjectiveParts;		// the windows that show it
+	idList<drawWin_t> iosObjectiveMovers;		// the ones that move, with all under them
+#endif
 
 	idWindow *focusedChild;			// if a child window has the focus
 	idWindow *captureChild;			// if a child window has mouse capture

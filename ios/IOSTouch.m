@@ -21,8 +21,10 @@
  * - Gyro aiming, OFF unless switched on: TOUCH aims while a thumb is down on
  *   the stick, the look area or a button that looks; ALWAYS aims always.
  * - Over a cinematic or the story intro: a tap anywhere skips it.
- * - Over the PDA: a finger puts its cursor where it is (and clicks); a
- *   close button in the top corner.
+ * - Over the PDA: a finger puts its cursor where it is; a tap clicks, a
+ *   drag scrolls the text or list under it; a close button in the corner.
+ * - In play, a tap on the screen (not a button) puts away the tip or the
+ *   objective showing.
  * - Over the console: the on-screen keyboard (its own, typing straight into
  *   the console) and buttons to hide and show it and to close the console;
  *   elsewhere a finger is the mouse, as in the menus.
@@ -301,14 +303,23 @@ static UIFont* iosTouch_WheelFont(CGFloat size)
 
 // ---------------------------------------------------------------- the PDA
 
-// A finger on the PDA: where it is (the engine puts the PDA's cursor there),
-// and the click it makes. It goes down one usercmd after the cursor has been
-// put there, and a tap too quick for that still clicks once.
+// A finger on the PDA: where it is (the engine puts the PDA's cursor there
+// and scrolls what's under it), and the click a tap makes as it lifts --
+// once the cursor has been put there for at least a usercmd. Slid
+// IOSTOUCH_GUI_SLOP, it scrolls instead, and doesn't click.
+#define IOSTOUCH_GUI_SLOP 8.0
 enum { IOSTOUCH_GUI_NONE = 0, IOSTOUCH_GUI_PLACED, IOSTOUCH_GUI_PRESSING };
 static int iosTouch_guiState;
 static CGPoint iosTouch_guiPos;
 static int iosTouch_bGuiDown;
-static int iosTouch_bGuiClicked;
+static int iosTouch_bGuiSeen;		// a usercmd has been made since it went down
+static int iosTouch_bGuiScrolled;
+static CGFloat iosTouch_guiScroll;	// dragged since the engine last took it (points, + down)
+
+// A tap on the screen in play (to put away a tip or objective): lifted
+// this soon, having moved no further
+#define IOSTOUCH_TAP_TIME 0.3
+#define IOSTOUCH_TAP_SLOP 10.0
 
 // ---------------------------------------------------------------- gyro aiming
 
@@ -1056,7 +1067,9 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			s->start = s->last = [t locationInView:self];
 			iosTouch_guiPos = s->last;
 			iosTouch_bGuiDown = 1;
-			iosTouch_bGuiClicked = 0;
+			iosTouch_bGuiSeen = 0;
+			iosTouch_bGuiScrolled = 0;
+			iosTouch_guiScroll = 0.0;
 			iosTouch_guiState = IOSTOUCH_GUI_PLACED;
 		}
 		return;
@@ -1130,6 +1143,8 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			break;
 		case ROLE_GUI:
 			iosTouch_guiPos = p;
+			if (!iosTouch_bGuiScrolled && hypot(p.x - s->start.x, p.y - s->start.y) >= IOSTOUCH_GUI_SLOP) iosTouch_bGuiScrolled = 1;
+			if (iosTouch_bGuiScrolled) iosTouch_guiScroll += dy;
 			break;
 		case ROLE_BUTTON: {
 			const iosTouchButton_t* b = &iosTouch_aButtons[s->button];
@@ -1174,7 +1189,11 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			[self liftWheelTouch:s cancelled:bCancelled];
 		}
 		if (s->role == ROLE_GUI) {
-			iosTouch_bGuiDown = 0;	// (its click goes up in IOSTouch_TakeInput)
+			iosTouch_bGuiDown = 0;	// (a tap's click: IOSTouch_TakeInput)
+		}
+		if (s->role == ROLE_LOOK && !bCancelled && t.timestamp - s->startTime < IOSTOUCH_TAP_TIME
+			&& hypot(s->last.x - s->start.x, s->last.y - s->start.y) < IOSTOUCH_TAP_SLOP) {
+			IOS_Dismiss();	// a tap: the tip or objective showing goes
 		}
 		int bWasStick = s->role == ROLE_STICK;
 		memset(s, 0, sizeof(*s));
@@ -1846,18 +1865,23 @@ void IOSTouch_TakeInput(iosTouchInput_t* input)
 {
 	memset(input, 0, sizeof(*input));
 	if (iosTouch_mode == IOSTOUCH_MODE_PDA) {
-		// the PDA's click: down once the cursor is where the finger went
-		// down, for as long as it stays (once, if it was a quick tap), then up
+		// the PDA's click: a tap, lifted without scrolling, clicks where it
+		// was (down for a usercmd, up the next), once the cursor has had a
+		// usercmd to get there
 		iosTouch_yaw = iosTouch_pitch = 0.0f;
 		if (iosTouch_guiState == IOSTOUCH_GUI_PLACED) {
-			iosTouch_guiState = IOSTOUCH_GUI_PRESSING;
-		} else if (iosTouch_guiState == IOSTOUCH_GUI_PRESSING) {
-			if (iosTouch_bGuiDown || !iosTouch_bGuiClicked) {
-				input->buttons |= IOSTOUCH_CMD_ATTACK;
-				iosTouch_bGuiClicked = 1;
-			} else {
-				iosTouch_guiState = IOSTOUCH_GUI_NONE;
+			if (!iosTouch_bGuiSeen) {
+				iosTouch_bGuiSeen = 1;
+			} else if (!iosTouch_bGuiDown) {
+				if (iosTouch_bGuiScrolled) {
+					iosTouch_guiState = IOSTOUCH_GUI_NONE;
+				} else {
+					input->buttons |= IOSTOUCH_CMD_ATTACK;
+					iosTouch_guiState = IOSTOUCH_GUI_PRESSING;
+				}
 			}
+		} else if (iosTouch_guiState == IOSTOUCH_GUI_PRESSING) {
+			iosTouch_guiState = IOSTOUCH_GUI_NONE;	// (and up)
 		}
 		return;
 	}
@@ -1912,4 +1936,11 @@ int IOSTouch_GuiTouch(float* x, float* y, float* w, float* h)
 	*w = (float)iosTouch_pOverlay.bounds.size.width;
 	*h = (float)iosTouch_pOverlay.bounds.size.height;
 	return 1;
+}
+
+float IOSTouch_TakeGuiScroll(void)
+{
+	float dy = (float)iosTouch_guiScroll;
+	iosTouch_guiScroll = 0.0;
+	return dy;
 }
