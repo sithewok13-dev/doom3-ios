@@ -10,6 +10,10 @@
  * only the Local Network permission iOS asks the player for, the first
  * time.
  *
+ * Over the internet, the Tailscale app on each phone puts them on one
+ * private network: a game is joined there by its address (JOIN, in the
+ * menus), and IOSNet_LocalAddresses says this phone's, to give to friends.
+ *
  * Uses the system's DNS-SD (dns_sd.h); everything runs on the main queue,
  * which SDL's event pumping keeps going.
  *
@@ -20,6 +24,8 @@
 #include <dns_sd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 
 #include "sys/ios/ios_net.h"
 
@@ -130,4 +136,30 @@ int IOSNet_Servers(char addresses[][32], int max, int onlyNew)
 	}
 	iosNet_numTold = iosNet_numServers;
 	return n;
+}
+
+// This phone's addresses others can join it at: its Wi-Fi's, and its
+// Tailscale one (100.64.0.0/10, on the VPN's interface), as
+// "Wi-Fi 192.168.1.5   Tailscale 100.101.1.2"
+void IOSNet_LocalAddresses(char* out, int size)
+{
+	char wifi[INET_ADDRSTRLEN] = "", tailscale[INET_ADDRSTRLEN] = "";
+	struct ifaddrs* list = NULL;
+	if (getifaddrs(&list) == 0) {
+		for (struct ifaddrs* i = list; i; i = i->ifa_next) {
+			if (!i->ifa_addr || i->ifa_addr->sa_family != AF_INET || !(i->ifa_flags & IFF_UP) || (i->ifa_flags & IFF_LOOPBACK)) continue;
+			const struct in_addr a = ((const struct sockaddr_in*)i->ifa_addr)->sin_addr;
+			uint32_t ip = ntohl(a.s_addr);
+			if ((ip & 0xFFC00000u) == 0x64400000u) {
+				inet_ntop(AF_INET, &a, tailscale, sizeof(tailscale));	// 100.64.0.0/10
+			} else if (strncmp(i->ifa_name, "en", 2) == 0 && !wifi[0]) {
+				inet_ntop(AF_INET, &a, wifi, sizeof(wifi));
+			}
+		}
+		freeifaddrs(list);
+	}
+	out[0] = '\0';
+	if (wifi[0]) snprintf(out, size, "Wi-Fi %s", wifi);
+	if (tailscale[0]) snprintf(out + strlen(out), size - strlen(out), "%sTailscale %s", out[0] ? "   " : "", tailscale);
+	if (!out[0]) snprintf(out, size, "no Wi-Fi or Tailscale address");
 }

@@ -205,6 +205,15 @@ void IOS_MenuText( const char *text ) {
 	}
 }
 
+void IOS_Connect( const char *address ) {
+	idStr adr = address;
+	adr.StripLeadingWhiteSpace();
+	adr.StripTrailingWhiteSpace();
+	if ( adr.Length() > 0 && adr.Find( ';' ) < 0 && adr.Find( '"' ) < 0 ) {
+		IOS_Command( va( "connect %s", adr.c_str() ) );
+	}
+}
+
 void IOS_MenuBackspace( void ) {
 	IOS_PressKey( SDL_SCANCODE_BACKSPACE );
 }

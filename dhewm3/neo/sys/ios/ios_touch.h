@@ -117,6 +117,7 @@ int		IOS_InGame( void );					// a level is running, no menu over it
 int		IOS_Multiplayer( void );			// a multiplayer game (no pausing, cheats or Action Freeze)
 void	IOS_MenuText( const char *text );	// typed into a menu's text field (UTF-8; "\n" Enter)
 void	IOS_MenuBackspace( void );
+void	IOS_Connect( const char *address );	// join the game there (JOIN: Tailscale, or any address)
 
 // The levels of the game running (for the cheat's LEVEL), in its order
 #define IOSTOUCH_MAX_LEVELS 64

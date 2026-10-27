@@ -39,6 +39,8 @@
  *   objective showing.
  * - Over the menus: a keyboard button in the top corner, for the text
  *   fields (the multiplayer menus' names); typing goes in as a keyboard's.
+ *   Beside it JOIN: a game joined by its address (over the internet, with
+ *   the Tailscale app on each phone), this phone's own addresses shown.
  * - In a multiplayer game PDA is SCORES (held), and CHEAT isn't there.
  * - Over the console: the on-screen keyboard (its own, typing straight into
  *   the console) and buttons to hide and show it and to close the console;
@@ -58,6 +60,7 @@
 #include <SDL3/SDL_scancode.h>
 
 #include "sys/ios/ios_touch.h"
+#include "sys/ios/ios_net.h"
 
 #define IOSTOUCH_COUNT(a) ((int)(sizeof(a) / sizeof((a)[0])))
 
@@ -688,6 +691,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	UIButton*			pdaCloseButton;	// over the PDA: close it
 	UIButton*			freezeExitButton;	// in Action Freeze: back to the game
 	UIButton*			menuKeysButton;		// over the menus: the keyboard, for their text fields
+	UIButton*			joinButton;			// ...and JOIN, a game by its address
 	CAShapeLayer*		cheatEmblem;	// CHEAT's pentagram in a ring
 	UIView*				flash;			// the camera's flash
 	UILabel*			toast;			// "Saved to Photos"
@@ -860,6 +864,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	pdaCloseButton = [self roundButton:@"xmark" action:@selector(pdaCloseTapped)];
 	freezeExitButton = [self roundButton:@"xmark" action:@selector(freezeExitTapped)];
 	menuKeysButton = [self roundButton:@"keyboard" action:@selector(menuKeysTapped)];
+	joinButton = [self roundButton:@"network" action:@selector(joinTapped)];
 	[self makeWheel];
 	[self makeLevelPanel];
 
@@ -914,6 +919,40 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	[tick selectionChanged];
 }
 
+// JOIN: a game by its address -- over the internet, its Tailscale address
+// (the Tailscale app on both phones); this phone's own shown, to give to
+// friends; the last one joined remembered
+#define IOSTOUCH_JOIN_DEFAULTS_KEY @"iosLastJoinAddress"
+
+- (void)joinTapped
+{
+	[consoleKeys resignFirstResponder];
+	char mine[128];
+	IOSNet_LocalAddresses(mine, sizeof(mine));
+	NSString* message = [NSString stringWithFormat:@"The address of the phone running the game. Over the internet, with Tailscale on both phones: its Tailscale address.\n\nThis phone: %s", mine];
+	UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Join a game" message:message
+															preferredStyle:UIAlertControllerStyleAlert];
+	[alert addTextFieldWithConfigurationHandler:^(UITextField* field) {
+		field.placeholder = @"100.101.1.2";
+		field.text = [[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_JOIN_DEFAULTS_KEY];
+		field.keyboardType = UIKeyboardTypeNumbersAndPunctuation;
+		field.autocorrectionType = UITextAutocorrectionTypeNo;
+		field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+		field.clearButtonMode = UITextFieldViewModeWhileEditing;
+	}];
+	[alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+	__weak UIAlertController* weakAlert = alert;
+	[alert addAction:[UIAlertAction actionWithTitle:@"Join" style:UIAlertActionStyleDefault handler:^(UIAlertAction* action) {
+		NSString* address = weakAlert.textFields.firstObject.text ?: @"";
+		if (address.length == 0) return;
+		[[NSUserDefaults standardUserDefaults] setObject:address forKey:IOSTOUCH_JOIN_DEFAULTS_KEY];
+		IOS_Connect(address.UTF8String);
+	}]];
+	UIViewController* vc = self.window.rootViewController;
+	while (vc.presentedViewController) vc = vc.presentedViewController;
+	[vc presentViewController:alert animated:YES completion:nil];
+}
+
 - (void)menuKeysTapped
 {
 	consoleKeys.toMenu = YES;
@@ -947,7 +986,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 {
 	UIView* v = [super hitTest:p withEvent:event];
 	if (iosTouch_mode == IOSTOUCH_MODE_CONSOLE && v != consoleKeysButton && v != consoleCloseButton) return nil;
-	if (iosTouch_mode == IOSTOUCH_MODE_MENU && v != menuKeysButton) return nil;
+	if (iosTouch_mode == IOSTOUCH_MODE_MENU && v != menuKeysButton && v != joinButton) return nil;
 	return v;
 }
 
@@ -1012,6 +1051,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	pdaCloseButton.center = aCentres[BTN_MENU];
 	freezeExitButton.center = aCentres[BTN_MENU];
 	menuKeysButton.center = aCentres[BTN_MENU];
+	joinButton.center = aCentres[BTN_QLOAD];
 	if (iosTouch_bWheelOpen) [self layoutWheel];
 }
 
@@ -2025,7 +2065,7 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		skipLabel.hidden = (mode != IOSTOUCH_MODE_SKIP);
 		consoleKeysButton.hidden = consoleCloseButton.hidden = (mode != IOSTOUCH_MODE_CONSOLE);
 		pdaCloseButton.hidden = (mode != IOSTOUCH_MODE_PDA);
-		menuKeysButton.hidden = (mode != IOSTOUCH_MODE_MENU);
+		menuKeysButton.hidden = joinButton.hidden = (mode != IOSTOUCH_MODE_MENU);
 		// the keyboard comes up with the console, and goes with it
 		if (mode == IOSTOUCH_MODE_CONSOLE) {
 			consoleKeys.toMenu = NO;

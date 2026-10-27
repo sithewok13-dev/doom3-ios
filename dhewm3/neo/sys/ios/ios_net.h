@@ -26,7 +26,9 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 /*
  * Multiplayer on the same Wi-Fi (ios/IOSNetwork.m): the games served from
  * here advertised with Bonjour, and the ones on the network found with it,
- * as iOS doesn't let an app broadcast to find them as DOOM 3 does.
+ * as iOS doesn't let an app broadcast to find them as DOOM 3 does. Over the
+ * internet, with the Tailscale app on each phone, a game is joined by its
+ * address (IOS_Connect).
  */
 
 #ifndef __IOS_NET_H__
@@ -39,6 +41,7 @@ extern "C" {
 void	IOSNet_Advertise( int port, const char *name );	// the server's port (0: none any more)
 void	IOSNet_Browse( void );								// start looking for games (asks for Local Network the first time)
 int		IOSNet_Servers( char addresses[][32], int max, int onlyNew );	// "a.b.c.d:port" of the games found (onlyNew: since last asked)
+void	IOSNet_LocalAddresses( char *out, int size );		// this phone's, to join it at: Wi-Fi, Tailscale
 
 #ifdef __cplusplus
 }
