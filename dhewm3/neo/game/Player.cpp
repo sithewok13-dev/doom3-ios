@@ -6430,6 +6430,33 @@ void idPlayer::Think( void ) {
 	if ( entityNumber == gameLocal.localClientNum ) {
 		IOS_GameReport( objectiveSystemOpen, gameLocal.inCinematic );
 
+		// the cheat button: god mode, every weapon and its ammo, and the
+		// monsters taking no notice, all on or off at once (put on again for
+		// the player of each new level or loaded game); FLY: noclip
+		static int cheatSerial = -1;
+		static int cheatSpawnId = -1;
+		int serial;
+		int cheatWanted = IOS_CheatWanted( &serial );
+		int spawnId = gameLocal.GetSpawnId( this );
+		if ( !gameLocal.isMultiplayer && ( serial != cheatSerial || spawnId != cheatSpawnId ) ) {
+			bool apply = serial != cheatSerial || cheatWanted;
+			cheatSerial = serial;
+			cheatSpawnId = spawnId;
+			if ( apply ) {
+				godmode = cheatWanted != 0;
+				fl.notarget = cheatWanted != 0;
+				if ( cheatWanted ) {
+					cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "give all\n" );
+				} else {
+					noclip = false;
+				}
+			}
+		}
+		if ( IOS_TakeFly() && godmode && !gameLocal.isMultiplayer ) {
+			noclip = !noclip;
+		}
+		IOS_CheatReport( godmode, noclip );
+
 		// a tap puts away the tip or the objective showing
 		if ( IOS_TakeDismiss() && hud ) {
 			if ( tipUp ) {

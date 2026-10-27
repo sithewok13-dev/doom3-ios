@@ -15,6 +15,14 @@
  *   IOSTOUCH_QUICKSAVE_HOLD, a ring filling round them (sliding off cancels).
  * - NEXT WPN: a tap is the next weapon; slid, or held still, it opens the
  *   weapon wheel (as the Jedi Knight port's), the game holding still.
+ * - In the middle of the top row, CAMERA and CHEAT (as the Jedi Knight
+ *   port's). CAMERA: a tap takes a photo of the game (no HUD), held still
+ *   IOSTOUCH_SELFIE_HOLD a selfie, the view turned round to the player; both
+ *   go to Photos. CHEAT, its pentagram in a ring, held IOSTOUCH_CHEAT_HOLD:
+ *   cheat mode on or off (god mode, every weapon and its ammo, the monsters
+ *   taking no notice), red while on. In cheat mode JUMP held still
+ *   IOSTOUCH_FLY_HOLD is FLY (noclip; JUMP rises then, and two quick taps on
+ *   it stop flying), and MENU's tray has LEVEL: a list of the game's levels.
  * - MENU: a tap opens the game's menu; held IOSTOUCH_MENU_HOLD it opens its
  *   tray: GYRO (a tap switches it off or back on; held, its MODE and SENS),
  *   RUN (the run marker or Always Run), FPS and the keyboard (the console).
@@ -93,6 +101,22 @@
 #define IOSTOUCH_QUICKSAVE_HOLD 0.3
 // MENU held this long opens its tray (and GYRO in it, its options)
 #define IOSTOUCH_MENU_HOLD 0.45
+// CAMERA held still this long is the selfie; CHEAT held this long switches
+// cheat mode (a tap does nothing, so it can't be hit by chance)
+#define IOSTOUCH_SELFIE_HOLD 0.5
+#define IOSTOUCH_CHEAT_HOLD 0.5
+// FLY, in cheat mode: JUMP held this long and still (moved less than
+// IOSTOUCH_FLY_STILL; a drag on it looks round) starts flying. While flying,
+// holding JUMP rises, so two quick taps (each shorter than IOSTOUCH_FLY_TAP,
+// the second down within IOSTOUCH_FLY_DOUBLE of the first's lift) stop it.
+#define IOSTOUCH_FLY_HOLD 0.5
+#define IOSTOUCH_FLY_TAP 0.25
+#define IOSTOUCH_FLY_DOUBLE 0.35
+#define IOSTOUCH_FLY_STILL 10.0
+// CAMERA and CHEAT sit in the middle of the top row, this far apart
+#define IOSTOUCH_MID_STEP 100.0
+// The cheat's red (its pentagram and edge while on)
+#define IOSTOUCH_CHEAT_RED(a) [UIColor colorWithRed:0.9 green:0.32 blue:0.28 alpha:(a)]
 // Gyro aiming (iosTouch_GyroSample): CoreMotion's device motion
 // IOSTOUCH_GYRO_HZ times a second. Turning is measured about the way up, so
 // it works however far back the phone is tipped; tilting is about the
@@ -119,9 +143,9 @@
 enum {
 	// the buttons in play
 	BTN_FIRE = 0, BTN_JUMP, BTN_CROUCH, BTN_RELOAD, BTN_LIGHT,
-	BTN_NEXTWPN, BTN_PDA, BTN_QSAVE, BTN_QLOAD, BTN_MENU,
+	BTN_NEXTWPN, BTN_PDA, BTN_QSAVE, BTN_QLOAD, BTN_MENU, BTN_CAMERA, BTN_CHEAT,
 	// MENU's tray, and GYRO's options in a second row under it
-	BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_FPS, BTN_TRAY_KEYS,
+	BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_FPS, BTN_TRAY_KEYS, BTN_TRAY_LEVEL,
 	BTN_OPT_MODE, BTN_OPT_SENS,
 	NUM_BUTTONS
 };
@@ -135,6 +159,8 @@ typedef enum {
 	KIND_MENU,		// a tap the menu, held the tray
 	KIND_TRAY,		// in MENU's tray
 	KIND_WHEEL,		// a tap acts; slid or held, opens the weapon wheel (NEXT WPN)
+	KIND_CAMERA,	// a tap a photo, held a selfie
+	KIND_CHEAT,		// held: cheat mode on or off
 } iosTouchKind_t;
 
 typedef struct {
@@ -155,10 +181,13 @@ static const iosTouchButton_t iosTouch_aButtons[NUM_BUTTONS] = {
 	{ "QUICK\nSAVE", KIND_HOLDTAP,	IOSTOUCH_TOP_R,			0 },
 	{ "QUICK\nLOAD", KIND_HOLDTAP,	IOSTOUCH_TOP_R,			0 },
 	{ "MENU",		KIND_MENU,		IOSTOUCH_TOP_R,			0 },
+	{ "",			KIND_CAMERA,	IOSTOUCH_TOP_R,			0 },	// (the camera symbol)
+	{ "",			KIND_CHEAT,		IOSTOUCH_TOP_R,			0 },	// (the pentagram)
 	{ "GYRO",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "RUN",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "FPS",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "",			KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (the keyboard symbol)
+	{ "LEVEL",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (in cheat mode)
 	{ "MODE",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "SENS",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 };
@@ -201,6 +230,11 @@ static float iosTouch_yaw, iosTouch_pitch;
 static int iosTouch_mode = IOSTOUCH_MODE_HIDDEN;
 static int iosTouch_bTrayOpen;
 static int iosTouch_bOptsOpen;
+
+// the cheats, as the game has them (read every frame)
+static int iosTouch_bCheatOn;
+static int iosTouch_bFlying;
+static CFTimeInterval iosTouch_jumpTapUp = -1.0;	// a quick tap on JUMP lifted then, while flying
 
 // ---------------------------------------------------------------- the weapon wheel
 
@@ -602,7 +636,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 
 // ---------------------------------------------------------------- the overlay
 
-@interface IOSTouchOverlay : UIView
+@interface IOSTouchOverlay : UIView <UITableViewDataSource, UITableViewDelegate>
 @end
 
 @implementation IOSTouchOverlay {
@@ -620,6 +654,14 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	UIButton*			consoleCloseButton;	// and close it
 	IOSConsoleKeys*		consoleKeys;
 	UIButton*			pdaCloseButton;	// over the PDA: close it
+	CAShapeLayer*		cheatEmblem;	// CHEAT's pentagram in a ring
+	UIView*				flash;			// the camera's flash
+	UILabel*			toast;			// "Saved to Photos"
+	// the cheat's level list
+	UIView*				levelPanel;
+	UITableView*		levelTable;
+	iosTouchLevel_t		aLevels[IOSTOUCH_MAX_LEVELS];
+	int					numLevels;
 	// the weapon wheel: over everything, hidden until opened
 	UIView*				wheelView;		// the game dimmed under it
 	CAShapeLayer*		wheelDisc;
@@ -674,7 +716,8 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 		[self addSubview:l];
 		aButtonViews[i] = l;
 
-		if (b->kind == KIND_HOLDTAP || b->kind == KIND_MENU || b->kind == KIND_WHEEL || i == BTN_TRAY_GYRO) {
+		if (b->kind == KIND_HOLDTAP || b->kind == KIND_MENU || b->kind == KIND_WHEEL || b->kind == KIND_CAMERA
+			|| b->kind == KIND_CHEAT || i == BTN_TRAY_GYRO || i == BTN_JUMP) {
 			CAShapeLayer* ring = [CAShapeLayer layer];
 			ring.frame = CGRectMake(0, 0, 2 * b->radius, 2 * b->radius);
 			ring.path = [UIBezierPath bezierPathWithArcCenter:CGPointMake(b->radius, b->radius) radius:b->radius - 2.0
@@ -696,6 +739,38 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 		aButtonViews[BTN_TRAY_KEYS].attributedText = [NSAttributedString attributedStringWithAttachment:att];
 	} else {
 		aButtonViews[BTN_TRAY_KEYS].text = @"TYPE";
+	}
+	// CAMERA shows a camera
+	UIImageSymbolConfiguration* camCfg = [UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightSemibold];
+	UIImage* cam = [UIImage systemImageNamed:@"camera.fill" withConfiguration:camCfg];
+	if (cam) {
+		NSTextAttachment* att = [[NSTextAttachment alloc] init];
+		att.image = [cam imageWithTintColor:[UIColor colorWithWhite:1.0 alpha:0.85] renderingMode:UIImageRenderingModeAlwaysOriginal];
+		aButtonViews[BTN_CAMERA].attributedText = [NSAttributedString attributedStringWithAttachment:att];
+	} else {
+		aButtonViews[BTN_CAMERA].text = @"CAM";
+	}
+	// CHEAT shows a pentagram in a ring, point down, under its hold's ring
+	{
+		CGFloat r = iosTouch_aButtons[BTN_CHEAT].radius;
+		cheatEmblem = [CAShapeLayer layer];
+		cheatEmblem.frame = CGRectMake(0, 0, 2 * r, 2 * r);
+		CGPoint c = CGPointMake(r, r);
+		CGFloat pr = r * 0.66;
+		UIBezierPath* path = [UIBezierPath bezierPathWithArcCenter:c radius:pr startAngle:0 endAngle:2 * M_PI clockwise:YES];
+		for (int k = 0; k <= 5; k++) {
+			// every second point of five round the ring, from the bottom one
+			CGFloat a = M_PI_2 + (k * 2 % 5) * 2.0 * M_PI / 5.0;
+			CGPoint q = CGPointMake(c.x + pr * cos(a), c.y + pr * sin(a));
+			if (k == 0) [path moveToPoint:q];
+			else [path addLineToPoint:q];
+		}
+		cheatEmblem.path = path.CGPath;
+		cheatEmblem.fillColor = UIColor.clearColor.CGColor;
+		cheatEmblem.strokeColor = [UIColor colorWithWhite:1.0 alpha:0.85].CGColor;
+		cheatEmblem.lineWidth = 1.6;
+		cheatEmblem.lineJoin = kCALineJoinRound;
+		[aButtonViews[BTN_CHEAT].layer insertSublayer:cheatEmblem atIndex:0];
 	}
 
 	// the stick, as the Jedi Knight port draws it: the ring, the line up to
@@ -750,6 +825,24 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	consoleCloseButton = [self roundButton:@"xmark" action:@selector(consoleCloseTapped)];
 	pdaCloseButton = [self roundButton:@"xmark" action:@selector(pdaCloseTapped)];
 	[self makeWheel];
+	[self makeLevelPanel];
+
+	flash = [[UIView alloc] initWithFrame:self.bounds];
+	flash.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	flash.backgroundColor = UIColor.whiteColor;
+	flash.userInteractionEnabled = NO;
+	flash.alpha = 0.0;
+	[self addSubview:flash];
+	toast = [[UILabel alloc] init];
+	toast.textAlignment = NSTextAlignmentCenter;
+	toast.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
+	toast.textColor = UIColor.whiteColor;
+	toast.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.6];
+	toast.layer.cornerRadius = 14.0;
+	toast.layer.masksToBounds = YES;
+	toast.userInteractionEnabled = NO;
+	toast.alpha = 0.0;
+	[self addSubview:toast];
 
 	iosTouch_bAlwaysRun = [[NSUserDefaults standardUserDefaults] boolForKey:IOSTOUCH_ALWAYSRUN_DEFAULTS_KEY];
 	iosTouch_GyroSetup();
@@ -845,13 +938,16 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	[self place:BTN_MENU at:CGPointMake(right - IOSTOUCH_TOP_R, rowY)];
 	[self place:BTN_QLOAD at:CGPointMake(right - IOSTOUCH_TOP_R - IOSTOUCH_TRAY_STEP, rowY)];
 	[self place:BTN_QSAVE at:CGPointMake(right - IOSTOUCH_TOP_R - 2 * IOSTOUCH_TRAY_STEP, rowY)];
+	CGFloat midX = self.bounds.size.width * 0.5;
+	[self place:BTN_CAMERA at:CGPointMake(midX, rowY)];
+	[self place:BTN_CHEAT at:CGPointMake(midX + IOSTOUCH_MID_STEP, rowY)];
 
 	// MENU's tray: a row under the top row, ending under MENU; GYRO's
 	// options a row under that, under GYRO
 	CGFloat trayY = rowY + IOSTOUCH_TRAY_STEP;
-	const int aTray[4] = { BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_FPS, BTN_TRAY_KEYS };
-	for (int k = 0; k < 4; k++) {
-		[self place:aTray[k] at:CGPointMake(right - IOSTOUCH_TOP_R - (3 - k) * IOSTOUCH_TRAY_STEP, trayY)];
+	const int aTray[5] = { BTN_TRAY_LEVEL, BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_FPS, BTN_TRAY_KEYS };
+	for (int k = 0; k < 5; k++) {
+		[self place:aTray[k] at:CGPointMake(right - IOSTOUCH_TOP_R - (4 - k) * IOSTOUCH_TRAY_STEP, trayY)];
 	}
 	CGFloat optY = trayY + IOSTOUCH_TRAY_STEP;
 	[self place:BTN_OPT_MODE at:CGPointMake(aCentres[BTN_TRAY_GYRO].x, optY)];
@@ -869,8 +965,9 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 - (void)layoutTrayBacking
 {
 	CGFloat r = IOSTOUCH_TOP_R + 6.0;
-	CGRect row = CGRectMake(aCentres[BTN_TRAY_GYRO].x - r, aCentres[BTN_TRAY_GYRO].y - r,
-							aCentres[BTN_TRAY_KEYS].x - aCentres[BTN_TRAY_GYRO].x + 2 * r, 2 * r);
+	int first = iosTouch_bCheatOn ? BTN_TRAY_LEVEL : BTN_TRAY_GYRO;	// (LEVEL in cheat mode)
+	CGRect row = CGRectMake(aCentres[first].x - r, aCentres[first].y - r,
+							aCentres[BTN_TRAY_KEYS].x - aCentres[first].x + 2 * r, 2 * r);
 	if (iosTouch_bOptsOpen) {
 		row.size.height += IOSTOUCH_TRAY_STEP;
 	}
@@ -895,7 +992,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	iosTouch_bTrayOpen = bOpen;
 	if (!bOpen) iosTouch_bOptsOpen = 0;
 	for (int i = BTN_FIRST_TRAY; i < NUM_BUTTONS; i++) {
-		aButtonViews[i].hidden = !bOpen || (i >= BTN_FIRST_OPT && !iosTouch_bOptsOpen);
+		aButtonViews[i].hidden = !bOpen || (i >= BTN_FIRST_OPT && !iosTouch_bOptsOpen) || (i == BTN_TRAY_LEVEL && !iosTouch_bCheatOn);
 	}
 	trayBacking.hidden = !bOpen;
 	[self layoutTrayBacking];
@@ -1055,6 +1152,11 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			IOS_Skip();
 			[thump impactOccurred];
 		}
+		return;
+	}
+	if (!levelPanel.hidden) {
+		// (the list takes its own touches): one off it closes it
+		[self closeLevels];
 		return;
 	}
 	if (iosTouch_mode == IOSTOUCH_MODE_PDA) {
@@ -1253,6 +1355,25 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 
 - (void)releaseButton:(int)b slot:(iosTouchSlot_t*)s at:(CGPoint)p
 {
+	if (b == BTN_CAMERA) {
+		// a tap (not held into the selfie): the photo
+		if (s->bInside && !s->bDone) IOS_TakePhoto(0);
+		return;
+	}
+	if (b == BTN_JUMP && iosTouch_bFlying) {
+		// flying: two quick taps stop it
+		CFTimeInterval now = [NSProcessInfo processInfo].systemUptime;
+		if (now - s->startTime < IOSTOUCH_FLY_TAP) {
+			if (iosTouch_jumpTapUp >= 0.0 && s->startTime - iosTouch_jumpTapUp < IOSTOUCH_FLY_DOUBLE) {
+				IOS_ToggleFly();
+				[thump impactOccurred];
+				iosTouch_jumpTapUp = -1.0;
+			} else {
+				iosTouch_jumpTapUp = now;
+			}
+		}
+		return;
+	}
 	if (b == BTN_NEXTWPN) {
 		// a quick tap (no wheel): the next weapon
 		if (s->bInside && !s->bDone) IOS_Impulse(14);	// IMPULSE_14: next weapon
@@ -1294,6 +1415,10 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		IOS_PressKey(SDL_SCANCODE_GRAVE);	// the console, with the keyboard
 		[self setTrayOpen:0];
 		return;
+	case BTN_TRAY_LEVEL:
+		[self setTrayOpen:0];
+		[self openLevels];
+		return;
 	case BTN_OPT_MODE:
 		iosTouch_GyroNextMode();
 		break;
@@ -1316,9 +1441,16 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		int b = s->button;
 		double hold = (iosTouch_aButtons[b].kind == KIND_HOLDTAP) ? IOSTOUCH_QUICKSAVE_HOLD
 					: (b == BTN_MENU || b == BTN_TRAY_GYRO) ? IOSTOUCH_MENU_HOLD
-					: (b == BTN_NEXTWPN) ? IOSTOUCH_WHEEL_HOLD : 0.0;
+					: (b == BTN_NEXTWPN) ? IOSTOUCH_WHEEL_HOLD
+					: (b == BTN_CAMERA) ? IOSTOUCH_SELFIE_HOLD
+					: (b == BTN_CHEAT) ? IOSTOUCH_CHEAT_HOLD
+					: (b == BTN_JUMP && iosTouch_bCheatOn && !iosTouch_bFlying) ? IOSTOUCH_FLY_HOLD : 0.0;
 		if (hold <= 0.0) continue;
 		if (!s->bInside) continue;	// slid off: cancelled
+		if (b == BTN_JUMP && hypot(s->last.x - s->start.x, s->last.y - s->start.y) >= IOSTOUCH_FLY_STILL) {
+			s->bDone = 1;	// (dragged: looking round, not flying)
+			continue;
+		}
 		double f = (now - s->startTime) / hold;
 		if (f < 1.0) {
 			aFill[b] = fmax(aFill[b], f);
@@ -1331,6 +1463,9 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		case BTN_MENU:	[self setTrayOpen:1]; [tick selectionChanged]; break;
 		case BTN_TRAY_GYRO: [self setOptsOpen:!iosTouch_bOptsOpen]; [tick selectionChanged]; break;
 		case BTN_NEXTWPN: [self openWheelFrom:s held:1]; break;	// held still: the wheel, to tap
+		case BTN_CAMERA: IOS_TakePhoto(1); break;						// held still: the selfie
+		case BTN_CHEAT: IOS_SetCheat(!iosTouch_bCheatOn); [thump impactOccurred]; break;
+		case BTN_JUMP: IOS_ToggleFly(); [thump impactOccurred]; break;	// in cheat mode: FLY
 		}
 	}
 	[CATransaction begin];
@@ -1356,6 +1491,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 - (void)releaseAll
 {
 	[self closeWheelSelecting:-1];
+	[self closeLevels];
 	iosTouch_guiState = IOSTOUCH_GUI_NONE;
 	iosTouch_bGuiDown = 0;
 	memset(iosTouch_aSlots, 0, sizeof(iosTouch_aSlots));
@@ -1821,7 +1957,162 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	if (mode == IOSTOUCH_MODE_GAMEPLAY) {
 		[self updateHolds];
 	}
+	int bCheat, bFlying;
+	IOS_GetCheats(&bCheat, &bFlying);
+	if (bCheat != iosTouch_bCheatOn || bFlying != iosTouch_bFlying) {
+		iosTouch_bCheatOn = bCheat;
+		iosTouch_bFlying = bFlying;
+		[self refreshCheatLooks];
+	}
 	iosTouch_GyroUpdate(mode == IOSTOUCH_MODE_GAMEPLAY, self);
+}
+
+// CHEAT red while cheat mode is on; JUMP says FLY under it then (lit while
+// flying); the tray's LEVEL only then
+- (void)refreshCheatLooks
+{
+	cheatEmblem.strokeColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_RED(0.95).CGColor : [UIColor colorWithWhite:1.0 alpha:0.85].CGColor;
+	aButtonViews[BTN_CHEAT].layer.borderColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_RED(0.8).CGColor : [UIColor colorWithWhite:1.0 alpha:0.6].CGColor;
+	UILabel* jump = aButtonViews[BTN_JUMP];
+	if (iosTouch_bCheatOn) {
+		NSMutableAttributedString* t = [[NSMutableAttributedString alloc] initWithString:@"JUMP\n"
+			attributes:@{ NSFontAttributeName: jump.font, NSForegroundColorAttributeName: jump.textColor }];
+		[t appendAttributedString:[[NSAttributedString alloc] initWithString:@"FLY"
+			attributes:@{ NSFontAttributeName: [UIFont systemFontOfSize:8.5 weight:UIFontWeightHeavy],
+						  NSForegroundColorAttributeName: iosTouch_bFlying ? IOSTOUCH_BLUE(1.0) : [UIColor colorWithWhite:1.0 alpha:0.6] }]];
+		jump.attributedText = t;
+	} else {
+		jump.text = @"JUMP";
+	}
+	if (iosTouch_bTrayOpen) [self setTrayOpen:1];
+	else [self layoutTrayBacking];
+}
+
+// ------------------------------------------------ the camera's photos
+
+// A photo the engine wrote (IOS_Shoot): a flash, then into Photos (the
+// first time, iOS asks to be let add to them), and the file removed
+- (void)photoTaken:(NSString*)path
+{
+	if (!path) return;
+	UIImage* img = [UIImage imageWithData:[NSData dataWithContentsOfFile:path]];
+	[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+	if (!img) {
+		[self showToast:@"No photo"];
+		return;
+	}
+	[self bringSubviewToFront:flash];
+	flash.alpha = 0.8;
+	[UIView animateWithDuration:0.35 animations:^{ self->flash.alpha = 0.0; }];
+	[thump impactOccurred];
+	UIImageWriteToSavedPhotosAlbum(img, self, @selector(image:didFinishSavingWithError:contextInfo:), NULL);
+}
+
+- (void)image:(UIImage*)image didFinishSavingWithError:(NSError*)error contextInfo:(void*)info
+{
+	[self showToast:error ? @"Allow Photos in Settings to save" : @"Saved to Photos"];
+}
+
+- (void)showToast:(NSString*)text
+{
+	toast.text = text;
+	CGSize ts = [toast sizeThatFits:CGSizeMake(400.0, 40.0)];
+	toast.bounds = CGRectMake(0, 0, ts.width + 28.0, 28.0);
+	toast.center = CGPointMake(self.bounds.size.width * 0.5, aCentres[BTN_CAMERA].y + IOSTOUCH_TOP_R + 24.0);
+	[self bringSubviewToFront:toast];
+	[toast.layer removeAllAnimations];
+	toast.alpha = 1.0;
+	[UIView animateWithDuration:0.4 delay:1.6 options:0 animations:^{ self->toast.alpha = 0.0; } completion:nil];
+}
+
+// ------------------------------------------------ the cheat's levels
+
+- (void)makeLevelPanel
+{
+	levelPanel = [[UIView alloc] init];
+	levelPanel.backgroundColor = [UIColor colorWithWhite:0.06 alpha:0.94];
+	levelPanel.layer.cornerRadius = 16.0;
+	levelPanel.layer.borderWidth = 1.5;
+	levelPanel.layer.borderColor = IOSTOUCH_CHEAT_RED(0.8).CGColor;
+	levelPanel.clipsToBounds = YES;
+	levelPanel.hidden = YES;
+	UILabel* title = [[UILabel alloc] initWithFrame:CGRectMake(16, 10, 200, 24)];
+	title.text = @"LEVEL";
+	title.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
+	title.textColor = IOSTOUCH_CHEAT_RED(1.0);
+	title.tag = 1;
+	[levelPanel addSubview:title];
+	UIButton* close = [UIButton buttonWithType:UIButtonTypeSystem];
+	[close setImage:[UIImage systemImageNamed:@"xmark"] forState:UIControlStateNormal];
+	close.tintColor = UIColor.whiteColor;
+	close.tag = 2;
+	[close addTarget:self action:@selector(closeLevels) forControlEvents:UIControlEventTouchUpInside];
+	[levelPanel addSubview:close];
+	levelTable = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+	levelTable.backgroundColor = UIColor.clearColor;
+	levelTable.separatorColor = [UIColor colorWithWhite:1.0 alpha:0.12];
+	levelTable.dataSource = self;
+	levelTable.delegate = self;
+	[levelPanel addSubview:levelTable];
+	[self addSubview:levelPanel];
+}
+
+// The levels of the game running, to pick one; the game holds still meanwhile
+- (void)openLevels
+{
+	numLevels = IOS_GetLevels(aLevels, IOSTOUCH_MAX_LEVELS);
+	if (numLevels <= 0) {
+		[self showToast:@"No levels found"];
+		return;
+	}
+	[self releaseAll];
+	CGRect b = self.bounds;
+	UIEdgeInsets in = self.safeAreaInsets;
+	CGFloat w = fmin(420.0, b.size.width - in.left - in.right - 40.0);
+	CGFloat h = b.size.height - fmax(in.top, 8.0) - fmax(in.bottom, 8.0) - 16.0;
+	levelPanel.frame = CGRectMake((b.size.width - w) * 0.5, (b.size.height - h) * 0.5, w, h);
+	[levelPanel viewWithTag:2].frame = CGRectMake(w - 44, 4, 40, 36);
+	levelTable.frame = CGRectMake(0, 44, w, h - 44);
+	[levelTable reloadData];
+	levelPanel.hidden = NO;
+	[self bringSubviewToFront:levelPanel];
+	IOS_HoldGame(1);
+}
+
+- (void)closeLevels
+{
+	if (levelPanel.hidden) return;
+	levelPanel.hidden = YES;
+	IOS_HoldGame(0);
+}
+
+- (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section
+{
+	return numLevels;
+}
+
+- (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)indexPath
+{
+	UITableViewCell* cell = [tableView dequeueReusableCellWithIdentifier:@"level"];
+	if (!cell) {
+		cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"level"];
+		cell.backgroundColor = UIColor.clearColor;
+		cell.textLabel.textColor = UIColor.whiteColor;
+		cell.textLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+		cell.detailTextLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.5];
+		cell.detailTextLabel.font = [UIFont systemFontOfSize:11];
+	}
+	const iosTouchLevel_t* l = &aLevels[indexPath.row];
+	cell.textLabel.text = [NSString stringWithFormat:@"%d. %s", (int)indexPath.row + 1, l->name];
+	cell.detailTextLabel.text = [NSString stringWithUTF8String:l->path];
+	return cell;
+}
+
+- (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)indexPath
+{
+	[tableView deselectRowAtIndexPath:indexPath animated:NO];
+	IOS_GoToLevel(aLevels[indexPath.row].path);
+	[self closeLevels];
 }
 
 @end
@@ -1943,4 +2234,9 @@ float IOSTouch_TakeGuiScroll(void)
 	float dy = (float)iosTouch_guiScroll;
 	iosTouch_guiScroll = 0.0;
 	return dy;
+}
+
+void IOSTouch_PhotoTaken(const char* path)
+{
+	[iosTouch_pOverlay photoTaken:(path ? [NSString stringWithUTF8String:path] : nil)];
 }

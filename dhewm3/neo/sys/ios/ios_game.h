@@ -56,6 +56,14 @@ void	IOS_RouteGuiTouch( void *gui );
 // goes away
 int		IOS_TakeDismiss( void );
 
+// The cheat button: whether cheat mode is wanted (god mode, every weapon and
+// ammo, the monsters taking no notice), and *serial, which changes each
+// time it's switched; FLY (noclip) asked for since the last call; and the
+// local player's cheats as they are
+int		IOS_CheatWanted( int *serial );
+int		IOS_TakeFly( void );
+void	IOS_CheatReport( int god, int noclip );
+
 #ifdef __cplusplus
 }
 #endif

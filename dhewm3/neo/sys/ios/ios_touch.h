@@ -87,6 +87,7 @@ void	IOSTouch_Frame( int mode );						// once a frame, on the main thread
 void	IOSTouch_TakeInput( iosTouchInput_t *input );	// as each usercmd is built
 int		IOSTouch_GuiTouch( float *x, float *y, float *w, float *h );	// a finger on the PDA: where, and the screen's size (points)
 float	IOSTouch_TakeGuiScroll( void );	// how far (points, + down) it dragged since the last call
+void	IOSTouch_PhotoTaken( const char *path );	// a photo written there (PNG), for Photos; NULL: none
 
 // the engine (sys/ios/ios_input.cpp), for the overlay
 void	IOS_Impulse( int impulse );			// a weapon slot, reload, next weapon, the PDA...
@@ -102,6 +103,20 @@ int		IOS_GetWeapons( iosTouchWeapon_t *out, int max, int *current );	// the weap
 void	IOS_PickWeapon( int slot );			// switch to it
 void	IOS_HoldGame( int hold );			// the game holds still while the wheel is open
 void	IOS_Dismiss( void );				// a tap: the tip or objective showing goes away
+void	IOS_SetCheat( int on );				// the cheat button: cheat mode on or off
+void	IOS_ToggleFly( void );				// FLY (noclip), in cheat mode
+void	IOS_GetCheats( int *on, int *flying );	// as the game has them now
+void	IOS_TakePhoto( int selfie );		// the camera: a photo, or a selfie (third person, from the front)
+int		IOS_InGame( void );					// a level is running, no menu over it
+
+// The levels of the game running (for the cheat's LEVEL), in its order
+#define IOSTOUCH_MAX_LEVELS 64
+typedef struct {
+	char	name[64];		// as the game names it
+	char	path[64];		// for the map command (game/mars_city1)
+} iosTouchLevel_t;
+int		IOS_GetLevels( iosTouchLevel_t *out, int max );
+void	IOS_GoToLevel( const char *path );
 
 #ifdef __cplusplus
 }

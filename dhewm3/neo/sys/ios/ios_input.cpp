@@ -36,6 +36,9 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 #include "framework/UsercmdGen.h"
 #include "framework/Session_local.h"
 #include "ui/UserInterface.h"
+#include "framework/FileSystem.h"
+#include "renderer/RenderSystem.h"
+#include "idlib/LangDict.h"
 #include "sys/sys_public.h"
 #include "sys/ios/ios_touch.h"
 #include "sys/ios/ios_game.h"
@@ -68,6 +71,20 @@ static bool gameHeld;
 
 // a tap asked the tip or objective showing to go
 static bool dismissAsked;
+
+// the cheat button, and the cheats as the game last reported them
+static int cheatWanted;
+static int cheatSerial;
+static bool flyAsked;
+static bool cheatGod, cheatNoclip;
+
+// the camera: a photo asked for; a selfie waits for the third person view
+// to be drawn before it's taken
+enum { PHOTO_NONE = 0, PHOTO_ASKED, SELFIE_ASKED, SELFIE_TURNING };
+static int photoState;
+static int photoTime;
+static const int SELFIE_TURN_MSEC = 150;
+static const char * const PHOTO_FILE = "ios_photo.png";
 
 static bool skipAsked;
 static bool closeConsoleAsked;
@@ -120,6 +137,144 @@ void IOS_HoldGame( int hold ) {
 
 bool IOS_GameHeld( void ) {
 	return gameHeld;
+}
+
+void IOS_SetCheat( int on ) {
+	cheatWanted = on != 0;
+	cheatSerial++;
+}
+
+int IOS_CheatWanted( int *serial ) {
+	*serial = cheatSerial;
+	return cheatWanted;
+}
+
+void IOS_ToggleFly( void ) {
+	flyAsked = true;
+}
+
+int IOS_TakeFly( void ) {
+	int asked = flyAsked;
+	flyAsked = false;
+	return asked;
+}
+
+void IOS_CheatReport( int god, int noclip ) {
+	cheatGod = god != 0;
+	cheatNoclip = noclip != 0;
+}
+
+void IOS_GetCheats( int *on, int *flying ) {
+	bool fresh = Sys_Milliseconds() - gameReport.time < GAME_REPORT_MSEC;
+	*on = fresh && cheatGod;
+	*flying = fresh && cheatNoclip;
+}
+
+int IOS_InGame( void ) {
+	return sessLocal.mapSpawned && sessLocal.guiActive == NULL && !console->Active();
+}
+
+void IOS_TakePhoto( int selfie ) {
+	if ( photoState == PHOTO_NONE ) {
+		photoState = selfie ? SELFIE_ASKED : PHOTO_ASKED;
+	}
+}
+
+/*
+================
+IOS_GetLevels
+
+The single player levels of the game running, as its map list (mapDef
+decls) names them, in its order: the ones under game/, not the
+multiplayer ones
+================
+*/
+int IOS_GetLevels( iosTouchLevel_t *out, int max ) {
+	int n = 0;
+	int num = fileSystem->GetNumMaps();
+	for ( int i = 0; i < num && n < max; i++ ) {
+		const idDict *dict = fileSystem->GetMapDecl( i );
+		if ( !dict ) {
+			continue;
+		}
+		const char *path = dict->GetString( "path" );
+		if ( idStr::Icmpn( path, "game/", 5 ) != 0 || idStr::FindText( path, "/mp/", false ) >= 0 ) {
+			continue;
+		}
+		const char *name = dict->GetString( "name" );
+		if ( name[0] == '\0' ) {
+			name = path;
+		}
+		idStr::Copynz( out[n].name, common->GetLanguageDict()->GetString( name ), sizeof( out[n].name ) );
+		idStr::Copynz( out[n].path, path, sizeof( out[n].path ) );
+		n++;
+	}
+	return n;
+}
+
+void IOS_GoToLevel( const char *path ) {
+	IOS_Command( va( "map %s", path ) );
+}
+
+/*
+================
+IOS_Shoot
+
+The photo: the game's view as it is drawn now, without the HUD (and its
+crosshair), as a PNG for the touch controls to put in Photos
+================
+*/
+extern int g_screenshotFormat;	// (renderer/RenderSystem_init.cpp)
+
+static void IOS_Shoot( void ) {
+	if ( !IOS_InGame() ) {
+		IOSTouch_PhotoTaken( NULL );
+		return;
+	}
+	bool showHud = cvarSystem->GetCVarBool( "g_showHud" );
+	cvarSystem->SetCVarBool( "g_showHud", false );
+	g_screenshotFormat = 2;	// PNG
+	renderSystem->TakeScreenshot( renderSystem->GetScreenWidth(), renderSystem->GetScreenHeight(), PHOTO_FILE, 1, NULL );
+	cvarSystem->SetCVarBool( "g_showHud", showHud );
+	idStr path = fileSystem->RelativePathToOSPath( PHOTO_FILE, "fs_savepath" );
+	IOSTouch_PhotoTaken( path.c_str() );
+}
+
+// the selfie's camera: in front of the player, looking back at them
+static const char * const selfieCVars[] = { "pm_thirdPerson", "pm_thirdPersonAngle", "pm_thirdPersonRange", "pm_thirdPersonHeight" };
+static const char * const selfieValues[] = { "1", "180", "70", "4" };
+static idStr selfieSaved[4];
+
+static void IOS_DoPhoto( void ) {
+	switch ( photoState ) {
+	case PHOTO_ASKED:
+		IOS_Shoot();
+		photoState = PHOTO_NONE;
+		break;
+	case SELFIE_ASKED:
+		if ( !IOS_InGame() ) {
+			IOSTouch_PhotoTaken( NULL );
+			photoState = PHOTO_NONE;
+			break;
+		}
+		for ( int i = 0; i < 4; i++ ) {
+			selfieSaved[i] = cvarSystem->GetCVarString( selfieCVars[i] );
+			cvarSystem->SetCVarString( selfieCVars[i], selfieValues[i] );
+		}
+		photoTime = Sys_Milliseconds();
+		photoState = SELFIE_TURNING;
+		break;
+	case SELFIE_TURNING:
+		if ( Sys_Milliseconds() - photoTime < SELFIE_TURN_MSEC ) {
+			break;
+		}
+		IOS_Shoot();
+		for ( int i = 0; i < 4; i++ ) {
+			cvarSystem->SetCVarString( selfieCVars[i], selfieSaved[i] );
+		}
+		photoState = PHOTO_NONE;
+		break;
+	}
 }
 
 void IOS_Dismiss( void ) {
@@ -289,6 +444,7 @@ menus, where a finger is the mouse.
 */
 void IOS_TouchFrame( void ) {
 	IOS_DoAsked();
+	IOS_DoPhoto();
 
 	bool gameFresh = Sys_Milliseconds() - gameReport.time < GAME_REPORT_MSEC;
 	int mode = IOSTOUCH_MODE_HIDDEN;

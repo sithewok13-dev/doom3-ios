@@ -79,6 +79,8 @@
 	</array>
 	<key>NSMotionUsageDescription</key>
 	<string>DOOM 3 can aim with your phone's movement (Gyro in the menu button's tray).</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>The camera button saves your photos and selfies of the game to Photos.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>DOOM 3 uses Bluetooth to talk to your game controller.</string>
 </dict>
