@@ -181,6 +181,8 @@ bool	IOS_IsWideMenu( idUserInterface *gui );
 float	IOS_WideZoom( void );
 void	IOS_WideFrame( float aspect );
 void	IOS_WideSeen( const idRectangle &r );
+class idMaterial;
+bool	IOS_WideVideo( const idRectangle &r, const idMaterial *background, float alpha );
 void	IOS_WideHide( const char * const *labels, int num );
 bool	IOS_WideHidden( idUserInterface *gui, idWinStr &text );
 // where r (in the 640 x 480) is drawn, as fractions of the screen

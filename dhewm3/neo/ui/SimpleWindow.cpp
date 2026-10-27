@@ -286,7 +286,9 @@ void idSimpleWindow::Redraw(float x, float y) {
 		dc->EnableClipping( false );
 	}
 #ifdef D3_IOS
-	if ( dc->iosWide && drawRect.w >= VIRTUAL_WIDTH * 0.92f && drawRect.h >= VIRTUAL_HEIGHT * 0.92f ) {
+	if ( dc->iosWide && IOS_WideVideo( drawRect, background, matColor.w() ) ) {
+		dc->IOS_SetMenuZoom( 1.0f );
+	} else if ( dc->iosWide && drawRect.w >= VIRTUAL_WIDTH * 0.92f && drawRect.h >= VIRTUAL_HEIGHT * 0.92f ) {
 		dc->IOS_SetMenuZoom( 0.0f );
 		DrawBackground( drawRect );
 		dc->IOS_SetMenuZoom( IOS_WideZoom() );

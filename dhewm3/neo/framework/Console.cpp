@@ -223,10 +223,18 @@ float SCR_DrawFPS( float y ) {
 		}
 		float fps = (1000.0f * FPS_FRAMES) / total;
 
+#ifdef D3_IOS
+		// iOS: small, at the bottom in the middle, clear of the touch
+		// controls along the top and the HUD's corners
+		char* s = va( "%d fps", idMath::FtoiFast( fps + 0.5f ) );
+		int w = strlen( s ) * SMALLCHAR_WIDTH;
+		renderSystem->DrawSmallStringExt( ( SCREEN_WIDTH - w ) / 2, SCREEN_HEIGHT - SMALLCHAR_HEIGHT - 4, s, colorWhite, true, localConsole.charSetShader );
+#else
 		char* s = va( "%.2ffps", fps );
 		int w = strlen( s ) * BIGCHAR_WIDTH;
 
 		renderSystem->DrawBigStringExt( 635 - w, idMath::FtoiFast( y ) + 2, s, colorWhite, true, localConsole.charSetShader);
+#endif
 
 		if ( com_showFPS.GetInteger() > 1 ) {
 			y +=  BIGCHAR_HEIGHT + 4;

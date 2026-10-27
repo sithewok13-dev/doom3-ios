@@ -1577,6 +1577,20 @@ void IOS_WideSeen( const idRectangle &r ) {
 	}
 }
 
+/*
+a video as big as the menu showing (the intro's, still fading out once
+skipped): never zoomed, nor drawn across the screen -- the zoom straight
+back to none, for it and the rest of the menu
+*/
+bool IOS_WideVideo( const idRectangle &r, const idMaterial *background, float alpha ) {
+	if ( !background || alpha <= 0.02f || background->CinematicLength() <= 0
+		|| r.w < VIRTUAL_WIDTH * 0.92f || r.h < VIRTUAL_HEIGHT * 0.92f ) {
+		return false;
+	}
+	iosWideZoom = 1.0f;
+	return true;
+}
+
 void IOS_WideHide( const char * const *labels, int num ) {
 	iosWideHidden.Clear();
 	for ( int i = 0; i < num; i++ ) {
@@ -1795,7 +1809,9 @@ void idWindow::Redraw(float x, float y) {
 	//#modified-fva; END
 
 #ifdef D3_IOS
-	if ( dc->iosWide && drawRect.w >= VIRTUAL_WIDTH * 0.92f && drawRect.h >= VIRTUAL_HEIGHT * 0.92f ) {
+	if ( dc->iosWide && IOS_WideVideo( drawRect, background, matColor.w() ) ) {
+		dc->IOS_SetMenuZoom( 1.0f );
+	} else if ( dc->iosWide && drawRect.w >= VIRTUAL_WIDTH * 0.92f && drawRect.h >= VIRTUAL_HEIGHT * 0.92f ) {
 		// a background as big as the menu: across the whole screen too,
 		// under it (no black either side)
 		dc->IOS_SetMenuZoom( 0.0f );
