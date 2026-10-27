@@ -114,6 +114,13 @@ static int cinemaTime;
 static void IOS_Shoot( void );
 
 static bool skipAsked;
+
+// The intro videos (the id logo) as the game starts, over the main menu:
+// for this long, or until a tap skips them
+static const int INTRO_MSEC = 10000;
+static int introStart = -1;		// when the main menu first showed (-1: not yet)
+static bool introOver;
+
 static bool closeConsoleAsked;
 static idList<sysEvent_t> consoleEvents;
 
@@ -593,6 +600,12 @@ static void IOS_DoAsked( void ) {
 		if ( sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiIntro ) {
 			// the story intro before Mars City: as when it ends by itself
 			sessLocal.HandleIntroMenuCommands( "startGame" );
+		} else if ( sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiMainMenu ) {
+			// the intro videos: the main menu as without them (StartMenu's
+			// "noIntro"), and Escape, as on PC
+			introOver = true;
+			sessLocal.guiMainMenu->HandleNamedEvent( "noIntro" );
+			IOS_PressKey( SDL_SCANCODE_ESCAPE );
 		} else if ( sessLocal.guiActive == NULL ) {
 			// a cinematic: Escape skips it, as on PC
 			IOS_PressKey( SDL_SCANCODE_ESCAPE );
@@ -628,6 +641,17 @@ void IOS_TouchFrame( void ) {
 		mode = IOSTOUCH_MODE_CONSOLE;
 	} else if ( sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiIntro ) {
 		mode = IOSTOUCH_MODE_SKIP;
+	} else if ( sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiMainMenu && !introOver ) {
+		// the intro videos as the game starts: a tap skips them
+		if ( introStart < 0 ) {
+			introStart = Sys_Milliseconds();
+		}
+		if ( Sys_Milliseconds() - introStart < INTRO_MSEC ) {
+			mode = IOSTOUCH_MODE_SKIP;
+		} else {
+			introOver = true;
+			mode = IOSTOUCH_MODE_MENU;
+		}
 	} else if ( sessLocal.guiActive != NULL ) {
 		mode = IOSTOUCH_MODE_MENU;
 	} else if ( sessLocal.mapSpawned && sessLocal.guiActive == NULL ) {

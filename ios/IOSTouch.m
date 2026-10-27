@@ -29,7 +29,9 @@
  *   it stop flying), and MENU's tray has LEVEL: a list of the game's levels.
  * - MENU: a tap opens the game's menu; held IOSTOUCH_MENU_HOLD it opens its
  *   tray: GYRO (a tap switches it off or back on; held, its MODE and SENS),
- *   RUN (the run marker or Always Run), FPS and the keyboard (the console).
+ *   RUN (the run marker's double chevron; lit, Always Run), FPS, CHEAT
+ *   (CHEAT shown or not: shown, cheat mode goes on), LEVEL (in cheat mode)
+ *   and the keyboard (the console).
  * - Gyro aiming, OFF unless switched on: TOUCH aims while a thumb is down on
  *   the stick, the look area or a button that looks; ALWAYS aims always.
  * - Over a cinematic or the story intro: a tap anywhere skips it.
@@ -156,13 +158,16 @@
 #define IOSTOUCH_GYRO_SENS_DEFAULTS_KEY @"iosTouchGyroSens"
 #define IOSTOUCH_GYRO_LAST_DEFAULTS_KEY @"iosTouchGyroLastMode"
 #define IOSTOUCH_ALWAYSRUN_DEFAULTS_KEY @"iosTouchAlwaysRun"
+// CHEAT shown (MENU's tray: off unless switched on), under the Jedi Knight
+// port's key
+#define IOSTOUCH_CHEAT_DEFAULTS_KEY @"iosTouchShowCheat"
 
 enum {
 	// the buttons in play
 	BTN_FIRE = 0, BTN_JUMP, BTN_CROUCH, BTN_RELOAD, BTN_LIGHT,
 	BTN_NEXTWPN, BTN_PDA, BTN_QSAVE, BTN_QLOAD, BTN_MENU, BTN_CAMERA, BTN_CHEAT,
 	// MENU's tray, and GYRO's options in a second row under it
-	BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_FPS, BTN_TRAY_KEYS, BTN_TRAY_LEVEL,
+	BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_FPS, BTN_TRAY_KEYS, BTN_TRAY_CHEAT, BTN_TRAY_LEVEL,
 	BTN_OPT_MODE, BTN_OPT_SENS,
 	NUM_BUTTONS
 };
@@ -204,6 +209,7 @@ static const iosTouchButton_t iosTouch_aButtons[NUM_BUTTONS] = {
 	{ "RUN",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "FPS",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "",			KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (the keyboard symbol)
+	{ "CHEAT",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (CHEAT shown or not)
 	{ "LEVEL",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (in cheat mode)
 	{ "MODE",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "SENS",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
@@ -252,7 +258,9 @@ static int iosTouch_mode = IOSTOUCH_MODE_HIDDEN;
 static int iosTouch_bTrayOpen;
 static int iosTouch_bOptsOpen;
 
-// the cheats, as the game has them (read every frame)
+// CHEAT shown (the tray's switch); the cheats, as the game has them (read
+// every frame)
+static int iosTouch_bShowCheat;
 static int iosTouch_bCheatOn;
 static int iosTouch_bFlying;
 static CFTimeInterval iosTouch_jumpTapUp = -1.0;	// a quick tap on JUMP lifted then, while flying
@@ -671,6 +679,19 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 
 // ---------------------------------------------------------------- the overlay
 
+// The run marker's double chevron, centred on m
+static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
+{
+	UIBezierPath* chevrons = [UIBezierPath bezierPath];
+	for (int i = 0; i < 2; i++) {
+		CGFloat tip = m.y - 5.5 + 5.5 * i;
+		[chevrons moveToPoint:CGPointMake(m.x - 6.0, tip + 5.0)];
+		[chevrons addLineToPoint:CGPointMake(m.x, tip)];
+		[chevrons addLineToPoint:CGPointMake(m.x + 6.0, tip + 5.0)];
+	}
+	return chevrons;
+}
+
 @interface IOSTouchOverlay : UIView <UITableViewDataSource, UITableViewDelegate>
 @end
 
@@ -693,6 +714,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	UIButton*			menuKeysButton;		// over the menus: the keyboard, for their text fields
 	UIButton*			joinButton;			// ...and JOIN, a game by its address
 	CAShapeLayer*		cheatEmblem;	// CHEAT's pentagram in a ring
+	CAShapeLayer*		runTrayChevrons;	// the tray's RUN: the run marker's double chevron
 	UIView*				flash;			// the camera's flash
 	UILabel*			toast;			// "Saved to Photos"
 	// the cheat's level list
@@ -810,6 +832,21 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 		cheatEmblem.lineJoin = kCALineJoinRound;
 		[aButtonViews[BTN_CHEAT].layer insertSublayer:cheatEmblem atIndex:0];
 	}
+	// the tray's RUN shows the run marker's double chevron, as big and in
+	// the same place in its round
+	{
+		CGFloat r = iosTouch_aButtons[BTN_TRAY_RUN].radius;
+		runTrayChevrons = [CAShapeLayer layer];
+		runTrayChevrons.frame = CGRectMake(0, 0, 2 * r, 2 * r);
+		runTrayChevrons.path = iosTouch_RunChevrons(CGPointMake(r, r)).CGPath;
+		runTrayChevrons.fillColor = UIColor.clearColor.CGColor;
+		runTrayChevrons.lineWidth = 2.0;
+		runTrayChevrons.lineCap = kCALineCapRound;
+		runTrayChevrons.lineJoin = kCALineJoinRound;
+		[aButtonViews[BTN_TRAY_RUN].layer addSublayer:runTrayChevrons];
+	}
+	iosTouch_bShowCheat = [[NSUserDefaults standardUserDefaults] boolForKey:IOSTOUCH_CHEAT_DEFAULTS_KEY];
+	if (iosTouch_bShowCheat) IOS_SetCheat(1);	// (shown: cheat mode on, as the game starts)
 
 	// the stick, as the Jedi Knight port draws it: the ring, the line up to
 	// the run marker, the knob, and the marker with its double chevron on top
@@ -1034,15 +1071,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 
 	// MENU's tray: a row under the top row, ending under MENU; GYRO's
 	// options a row under that, under GYRO
-	CGFloat trayY = rowY + IOSTOUCH_TRAY_STEP;
-	const int aTray[5] = { BTN_TRAY_LEVEL, BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_FPS, BTN_TRAY_KEYS };
-	for (int k = 0; k < 5; k++) {
-		[self place:aTray[k] at:CGPointMake(right - IOSTOUCH_TOP_R - (4 - k) * IOSTOUCH_TRAY_STEP, trayY)];
-	}
-	CGFloat optY = trayY + IOSTOUCH_TRAY_STEP;
-	[self place:BTN_OPT_MODE at:CGPointMake(aCentres[BTN_TRAY_GYRO].x, optY)];
-	[self place:BTN_OPT_SENS at:CGPointMake(aCentres[BTN_TRAY_GYRO].x + IOSTOUCH_TRAY_STEP, optY)];
-	[self layoutTrayBacking];
+	[self layoutTray];
 
 	// SKIP where FIRE is; the console's buttons where MENU and QUICK LOAD are
 	skipLabel.frame = CGRectMake(right - 96.0, bottom - 2 * IOSTOUCH_TOP_R, 96.0, 2 * IOSTOUCH_TOP_R);
@@ -1055,10 +1084,35 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	if (iosTouch_bWheelOpen) [self layoutWheel];
 }
 
+// MENU's tray: a row under the top row, ending under MENU (LEVEL in it only
+// in cheat mode); GYRO's options a row under that, under GYRO
+static int iosTouch_TrayHas(int b)
+{
+	return b != BTN_TRAY_LEVEL || (iosTouch_bShowCheat && iosTouch_bCheatOn);
+}
+
+- (void)layoutTray
+{
+	static const int aTray[] = { BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_FPS, BTN_TRAY_CHEAT, BTN_TRAY_LEVEL, BTN_TRAY_KEYS };
+	int n = 0;
+	for (int k = 0; k < IOSTOUCH_COUNT(aTray); k++) n += iosTouch_TrayHas(aTray[k]);
+	CGFloat trayY = aCentres[BTN_MENU].y + IOSTOUCH_TRAY_STEP;
+	int at = 0;
+	for (int k = 0; k < IOSTOUCH_COUNT(aTray); k++) {
+		if (!iosTouch_TrayHas(aTray[k])) continue;
+		[self place:aTray[k] at:CGPointMake(aCentres[BTN_MENU].x - (n - 1 - at) * IOSTOUCH_TRAY_STEP, trayY)];
+		at++;
+	}
+	CGFloat optY = trayY + IOSTOUCH_TRAY_STEP;
+	[self place:BTN_OPT_MODE at:CGPointMake(aCentres[BTN_TRAY_GYRO].x, optY)];
+	[self place:BTN_OPT_SENS at:CGPointMake(aCentres[BTN_TRAY_GYRO].x + IOSTOUCH_TRAY_STEP, optY)];
+	[self layoutTrayBacking];
+}
+
 - (void)layoutTrayBacking
 {
 	CGFloat r = IOSTOUCH_TOP_R + 6.0;
-	int first = iosTouch_bCheatOn ? BTN_TRAY_LEVEL : BTN_TRAY_GYRO;	// (LEVEL in cheat mode)
+	int first = BTN_TRAY_GYRO;	// (the row's first)
 	CGRect row = CGRectMake(aCentres[first].x - r, aCentres[first].y - r,
 							aCentres[BTN_TRAY_KEYS].x - aCentres[first].x + 2 * r, 2 * r);
 	if (iosTouch_bOptsOpen) {
@@ -1074,7 +1128,12 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	static const char* aGyroModes[] = { "OFF", "TOUCH", "ALWAYS" };
 	aButtonViews[BTN_TRAY_GYRO].text = iosTouch_GyroAvailable() || !iosTouch_pMotion
 		? [NSString stringWithFormat:@"GYRO\n%s", aGyroModes[iosTouch_gyroMode]] : @"NO\nGYRO";
-	aButtonViews[BTN_TRAY_RUN].text = iosTouch_bAlwaysRun ? @"RUN\nALWAYS" : @"RUN\n^^";
+	// RUN: the double chevron; lit blue, as the marker running, for Always Run
+	aButtonViews[BTN_TRAY_RUN].text = @"";
+	aButtonViews[BTN_TRAY_RUN].backgroundColor = iosTouch_bAlwaysRun ? IOSTOUCH_BLUE(0.55) : [UIColor colorWithWhite:0.0 alpha:0.28];
+	runTrayChevrons.strokeColor = [UIColor colorWithWhite:1.0 alpha:(iosTouch_bAlwaysRun ? 1.0 : 0.85)].CGColor;
+	aButtonViews[BTN_TRAY_CHEAT].text = iosTouch_bShowCheat ? @"CHEAT\nON" : @"CHEAT\nOFF";
+	aButtonViews[BTN_TRAY_CHEAT].textColor = iosTouch_bShowCheat ? IOSTOUCH_CHEAT_RED(1.0) : [UIColor colorWithWhite:1.0 alpha:0.85];
 	aButtonViews[BTN_TRAY_FPS].text = IOS_CVarInteger("com_showFPS") ? @"FPS\nON" : @"FPS\nOFF";
 	aButtonViews[BTN_OPT_MODE].text = iosTouch_gyroLastMode == IOSTOUCH_GYRO_ALWAYS ? @"MODE\nALWAYS" : @"MODE\nTOUCH";
 	aButtonViews[BTN_OPT_SENS].text = [NSString stringWithFormat:@"SENS\n%.1fx", iosTouch_aGyroSens[iosTouch_gyroSens]];
@@ -1085,10 +1144,10 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	iosTouch_bTrayOpen = bOpen;
 	if (!bOpen) iosTouch_bOptsOpen = 0;
 	for (int i = BTN_FIRST_TRAY; i < NUM_BUTTONS; i++) {
-		aButtonViews[i].hidden = !bOpen || (i >= BTN_FIRST_OPT && !iosTouch_bOptsOpen) || (i == BTN_TRAY_LEVEL && !iosTouch_bCheatOn);
+		aButtonViews[i].hidden = !bOpen || (i >= BTN_FIRST_OPT && !iosTouch_bOptsOpen) || !iosTouch_TrayHas(i);
 	}
 	trayBacking.hidden = !bOpen;
-	[self layoutTrayBacking];
+	[self layoutTray];
 	[self refreshLabels];
 }
 
@@ -1220,14 +1279,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			runMarker.path = [UIBezierPath bezierPathWithArcCenter:m radius:IOSTOUCH_RUN_R startAngle:0 endAngle:2 * M_PI clockwise:YES].CGPath;
 			runMarker.fillColor = bLit ? IOSTOUCH_BLUE(0.55).CGColor : [UIColor colorWithWhite:0.0 alpha:0.35].CGColor;
 			runMarker.strokeColor = [UIColor colorWithWhite:1.0 alpha:(bLit ? 0.85 : 0.45)].CGColor;
-			UIBezierPath* chevrons = [UIBezierPath bezierPath];
-			for (int i = 0; i < 2; i++) {
-				CGFloat tip = m.y - 5.5 + 5.5 * i;
-				[chevrons moveToPoint:CGPointMake(m.x - 6.0, tip + 5.0)];
-				[chevrons addLineToPoint:CGPointMake(m.x, tip)];
-				[chevrons addLineToPoint:CGPointMake(m.x + 6.0, tip + 5.0)];
-			}
-			runChevrons.path = chevrons.CGPath;
+			runChevrons.path = iosTouch_RunChevrons(m).CGPath;
 			runChevrons.strokeColor = [UIColor colorWithWhite:1.0 alpha:(bLit ? 1.0 : 0.85)].CGColor;
 			runLine.opacity = runMarker.opacity = runChevrons.opacity = alpha;
 		}
@@ -1517,6 +1569,15 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 	case BTN_TRAY_RUN:
 		iosTouch_bAlwaysRun = !iosTouch_bAlwaysRun;
 		[[NSUserDefaults standardUserDefaults] setBool:iosTouch_bAlwaysRun forKey:IOSTOUCH_ALWAYSRUN_DEFAULTS_KEY];
+		[self showToast:iosTouch_bAlwaysRun ? @"Always Run" : @"Run: push the stick onto the marker"];
+		break;
+	case BTN_TRAY_CHEAT:
+		// CHEAT shown, and cheat mode on with it; hidden, cheat mode off
+		iosTouch_bShowCheat = !iosTouch_bShowCheat;
+		[[NSUserDefaults standardUserDefaults] setBool:iosTouch_bShowCheat forKey:IOSTOUCH_CHEAT_DEFAULTS_KEY];
+		IOS_SetCheat(iosTouch_bShowCheat);
+		if (iosTouch_bShowCheat) [self cheatSwitchedOn];
+		[self showButtons];
 		break;
 	case BTN_TRAY_FPS:
 		IOS_Command(IOS_CVarInteger("com_showFPS") ? "com_showFPS 0" : "com_showFPS 1");
@@ -1584,7 +1645,11 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		case BTN_TRAY_GYRO: [self setOptsOpen:!iosTouch_bOptsOpen]; [tick selectionChanged]; break;
 		case BTN_NEXTWPN: [self openWheelFrom:s held:1]; break;	// held still: the wheel, to tap
 		case BTN_CAMERA: IOS_TakePhoto(1); break;						// held still: the selfie
-		case BTN_CHEAT: IOS_SetCheat(!iosTouch_bCheatOn); [thump impactOccurred]; break;
+		case BTN_CHEAT:
+			IOS_SetCheat(!iosTouch_bCheatOn);
+			if (!iosTouch_bCheatOn) [self cheatSwitchedOn];
+			else [thump impactOccurred];
+			break;
 		case BTN_JUMP: IOS_ToggleFly(); [thump impactOccurred]; break;	// in cheat mode: FLY
 		}
 	}
@@ -2105,9 +2170,16 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	int bPlay = iosTouch_mode == IOSTOUCH_MODE_GAMEPLAY;
 	for (int i = 0; i < BTN_FIRST_TRAY; i++) {
 		int bFreezeButton = i == BTN_CAMERA || i == BTN_JUMP || i == BTN_CROUCH;
-		aButtonViews[i].hidden = !bPlay || (iosTouch_bFrozen && !bFreezeButton) || (i == BTN_CHEAT && iosTouch_bMultiplayer);
+		aButtonViews[i].hidden = !bPlay || (iosTouch_bFrozen && !bFreezeButton) || (i == BTN_CHEAT && (iosTouch_bMultiplayer || !iosTouch_bShowCheat));
 	}
 	freezeExitButton.hidden = !bPlay || !iosTouch_bFrozen;
+}
+
+// Cheat mode switched on (the tray's CHEAT, or CHEAT held): its sound
+- (void)cheatSwitchedOn
+{
+	[thump impactOccurred];
+	// (the sound: to be decided)
 }
 
 // CHEAT red while cheat mode is on; JUMP says FLY under it then (lit while
@@ -2128,7 +2200,7 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		jump.text = @"JUMP";
 	}
 	if (iosTouch_bTrayOpen) [self setTrayOpen:1];
-	else [self layoutTrayBacking];
+	else [self layoutTray];
 }
 
 // ------------------------------------------------ the camera's photos
