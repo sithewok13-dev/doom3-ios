@@ -158,9 +158,6 @@ would be new work; tell me if you want it.
   - The map list is read from `maps/game/*.map` in the game's own paks: 27 maps in base, 12 in RoE.
   - Loading a map starts it with your current weapons from `give all`.
 - Fly and notarget end at each new level, as in your ports.
-- **Flashlight:** in DOOM 3 and Resurrection of Evil (and the Phobos port's code) the flashlight has no
-  battery: it's already unlimited, as in vanilla. The battery is a BFG Edition feature. If a supported
-  game ever has one, cheat mode keeps it full.
 - **Doesn't translate:**
   - JK's 4-star Force powers and Sam's network cheat bits: DOOM 3 is single player here.
   - Sam's pit rescue: DOOM 3 barely has pits. God mode covers most of it.
