@@ -21,13 +21,28 @@ target_link_libraries(${DHEWM3BINARY}
 	"-framework AVFoundation" "-framework AudioToolbox" "-framework CoreAudio"
 	"-framework CoreBluetooth" "-framework CoreGraphics" "-framework CoreHaptics"
 	"-framework CoreMotion" "-framework Foundation" "-framework GameController"
-	"-framework Metal" "-framework OpenGLES" "-framework QuartzCore"
+	"-framework Metal" "-framework QuartzCore"
 	"-framework UIKit" "-framework UniformTypeIdentifiers"
 )
 
+# ANGLE (OpenGL ES on Metal): its two frameworks, linked by @rpath and copied
+# into the app's Frameworks folder
+set(ANGLE_FRAMEWORK_DIR "${ANGLE_ROOT}/out/ios")
+target_link_libraries(${DHEWM3BINARY}
+	"-F${ANGLE_FRAMEWORK_DIR}" "-framework libEGL" "-framework libGLESv2"
+	"-Wl,-rpath,@executable_path/Frameworks"
+)
+
+set(IOS_BUNDLE_DIR "$<TARGET_BUNDLE_DIR:${DHEWM3BINARY}>")
+add_custom_command(TARGET ${DHEWM3BINARY} POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${IOS_BUNDLE_DIR}/Frameworks"
+	COMMAND ${CMAKE_COMMAND} -E copy_directory "${ANGLE_FRAMEWORK_DIR}/libEGL.framework" "${IOS_BUNDLE_DIR}/Frameworks/libEGL.framework"
+	COMMAND ${CMAKE_COMMAND} -E copy_directory "${ANGLE_FRAMEWORK_DIR}/libGLESv2.framework" "${IOS_BUNDLE_DIR}/Frameworks/libGLESv2.framework"
+	COMMENT "Bundling ANGLE"
+	VERBATIM)
+
 # Icons and the launch screen colour: compile the asset catalog into the
 # bundle, as Xcode would, and add the icon keys actool reports to Info.plist.
-set(IOS_BUNDLE_DIR "$<TARGET_BUNDLE_DIR:${DHEWM3BINARY}>")
 add_custom_command(TARGET ${DHEWM3BINARY} POST_BUILD
 	COMMAND xcrun actool "${IOS_APP_DIR}/Assets.xcassets"
 		--compile "${IOS_BUNDLE_DIR}"

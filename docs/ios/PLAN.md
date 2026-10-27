@@ -24,6 +24,8 @@ two agree, that's the standard. Where they differ, it's flagged below for you to
 - DOOM 3's own menus; tomkidd's native launcher screens go.
 - Work goes on branch `ios`; CI keeps the IPAs as artifacts; no public release.
 - Rendering: ANGLE (relayed from another session; no Vulkan or native Metal work).
+- Minimum iOS 18, like the Jedi Knight port: the same ANGLE build (iPhone XS/XR and newer). (27 Oct)
+- One app for DOOM 3 and Resurrection of Evil, switched under Mods. (26 Oct)
 
 ## Where things stand today
 
@@ -45,7 +47,7 @@ two agree, that's the standard. Where they differ, it's flagged below for you to
     from a release. Because this repo isn't in Sithewok-apps, its caller file has to live in
     ios-pipeline itself, and I only have read access there. When you want TestFlight, I'll write the
     ten-line caller for you to add, or you can give me write access.
-- **Modernize:** arm64 only, minimum iOS 15, current Swift, and drop armv7/i386/simulator leftovers.
+- **Modernize:** arm64 only, minimum iOS 18 (was 15 until the ANGLE switch), current Swift, and drop armv7/i386/simulator leftovers.
   Bundle ids `com.sithewok.doom3` and `com.sithewok.doom3roe`. Set `CFBundleVersion` to
   `$(CURRENT_PROJECT_VERSION)` and add `ITSAppUsesNonExemptEncryption` = NO, as ios-pipeline requires.
   - Keep the prebuilt curl only if it still links. DOOM 3 single player doesn't need it, so it can

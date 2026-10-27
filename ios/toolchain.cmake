@@ -6,11 +6,12 @@ set(CMAKE_SYSTEM_PROCESSOR arm64)
 set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
 set(CMAKE_OSX_SYSROOT "iphoneos" CACHE STRING "" FORCE)
 
-# The minimum iOS version; CI and build-deps.sh pass the same one.
+# The minimum iOS version; CI and build-deps.sh pass the same one. It must
+# match ANGLE's: dyld won't load a framework built for a newer iOS than the phone's.
 if(DEFINED ENV{IOS_DEPLOYMENT_TARGET})
 	set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{IOS_DEPLOYMENT_TARGET} CACHE STRING "" FORCE)
 else()
-	set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "" FORCE)
+	set(CMAKE_OSX_DEPLOYMENT_TARGET "18.0" CACHE STRING "" FORCE)
 endif()
 
 # Unsigned: CI signs the app ad hoc, ios-pipeline or a sideloading app signs it for real.

@@ -70,6 +70,14 @@ if(IOS)
 	set(DEDICATED OFF CACHE BOOL "" FORCE)
 	set(HARDLINK_GAME OFF CACHE BOOL "" FORCE)
 	add_definitions(-DD3_IOS=1)
+
+	# OpenGL ES comes from ANGLE (on Metal), prebuilt: its headers here, its
+	# frameworks linked and bundled by ios_app.cmake (see sys/ios/ios_angle.h)
+	set(ANGLE_ROOT "" CACHE PATH "Prebuilt ANGLE: include/ and out/ios/lib{EGL,GLESv2}.framework")
+	if(NOT EXISTS "${ANGLE_ROOT}/include/EGL/egl.h" OR NOT EXISTS "${ANGLE_ROOT}/out/ios/libGLESv2.framework")
+		message(FATAL_ERROR "ANGLE not found in ANGLE_ROOT (${ANGLE_ROOT}); see .github/workflows/ios.yml for how it's built")
+	endif()
+	include_directories(BEFORE SYSTEM "${ANGLE_ROOT}/include")
 endif()
 option(REPRODUCIBLE_BUILD "Replace __DATE__ and __TIME__ by hardcoded values for reproducible builds" OFF)
 
@@ -1270,6 +1278,7 @@ elseif(IOS)
 	set(src_sys_core
 		sys/glimp.cpp
 		sys/ios/ios_main.mm
+		sys/ios/ios_angle.cpp
 	)
 elseif(APPLE)
 	set(OSX_RESOURCE_FILES

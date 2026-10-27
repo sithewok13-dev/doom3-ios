@@ -33,8 +33,10 @@ build() { # dir, then extra cmake args
 }
 
 fetch https://github.com/libsdl-org/SDL "$SDL_TAG" SDL
+# no OpenGL in SDL: ANGLE draws on SDL's Metal view (sys/ios/ios_angle.h)
 build SDL \
 	-DSDL_SHARED=OFF -DSDL_STATIC=ON \
+	-DSDL_OPENGLES=OFF -DSDL_OPENGL=OFF \
 	-DSDL_TEST_LIBRARY=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
 
 # CoreAudio is the only real output on iOS: without it OpenAL Soft would

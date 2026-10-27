@@ -38,6 +38,11 @@ If you have questions concerning this license or the applicable additional terms
   typedef Uint32 My_SDL_WindowFlags;
 #endif
 
+#ifdef D3_IOS
+  // the GL context comes from ANGLE (OpenGL ES on Metal), not from SDL
+  #include "sys/ios/ios_angle.h"
+#endif
+
 #include "sys/platform.h"
 #include "framework/Licensee.h"
 
