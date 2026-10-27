@@ -54,6 +54,12 @@ static const int MAX_IMPULSES = 8;
 static int impulses[MAX_IMPULSES];
 static int numImpulses;
 
+// what the overlay asked for since the last frame, done after it (the
+// overlay's callbacks come in the middle of one, as SDL pumps its events)
+static bool skipAsked;
+static bool closeConsoleAsked;
+static idList<sysEvent_t> consoleEvents;
+
 void IOS_GameReport( int pdaOpen, int inCinematic ) {
 	gameReport.time = Sys_Milliseconds();
 	gameReport.pdaOpen = pdaOpen != 0;
@@ -97,21 +103,105 @@ int IOS_CVarInteger( const char *name ) {
 	return cvarSystem->GetCVarInteger( name );
 }
 
+void IOS_Skip( void ) {
+	skipAsked = true;
+}
+
+static void QueueConsoleEvent( sysEventType_t type, int value, int value2 ) {
+	sysEvent_t ev;
+	memset( &ev, 0, sizeof( ev ) );
+	ev.evType = type;
+	ev.evValue = value;
+	ev.evValue2 = value2;
+	consoleEvents.Append( ev );
+}
+
+void IOS_ConsoleText( const char *text ) {
+	// the console takes single-byte characters; anything else (emoji,
+	// accents) is left out
+	for ( const unsigned char *c = (const unsigned char *)text; *c; c++ ) {
+		if ( *c == '\n' || *c == '\r' ) {
+			IOS_ConsoleKey( IOSTOUCH_KEY_ENTER );
+		} else if ( *c >= ' ' && *c < 0x7f && *c != '`' && *c != '~' ) {
+			QueueConsoleEvent( SE_CHAR, *c, 0 );
+		}
+	}
+}
+
+void IOS_ConsoleKey( int key ) {
+	int k = ( key == IOSTOUCH_KEY_ENTER ) ? K_ENTER : K_BACKSPACE;
+	QueueConsoleEvent( SE_KEY, k, 1 );
+	if ( k == K_BACKSPACE ) {
+		// the edit line deletes on the character, as SDL's keys send it
+		QueueConsoleEvent( SE_CHAR, K_BACKSPACE, 0 );
+	}
+	QueueConsoleEvent( SE_KEY, k, 0 );
+}
+
+void IOS_CloseConsole( void ) {
+	closeConsoleAsked = true;
+}
+
+/*
+================
+IOS_DoAsked
+
+What the overlay asked for during the frame.
+================
+*/
+static void IOS_DoAsked( void ) {
+	if ( closeConsoleAsked ) {
+		closeConsoleAsked = false;
+		consoleEvents.Clear();
+		if ( console->Active() ) {
+			console->Close();
+		}
+	}
+	for ( int i = 0; i < consoleEvents.Num(); i++ ) {
+		if ( console->Active() ) {
+			console->ProcessEvent( &consoleEvents[i], false );
+		}
+	}
+	consoleEvents.Clear();
+
+	if ( skipAsked ) {
+		skipAsked = false;
+		if ( sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiIntro ) {
+			// the story intro before Mars City: as when it ends by itself
+			sessLocal.HandleIntroMenuCommands( "startGame" );
+		} else if ( sessLocal.guiActive == NULL ) {
+			// a cinematic: Escape skips it, as on PC
+			IOS_PressKey( SDL_SCANCODE_ESCAPE );
+		}
+	}
+}
+
 /*
 ================
 IOS_TouchFrame
 
-Once a frame: shows the touch controls in play, hides them wherever a finger
-is the mouse (menus, the console, the PDA) and in cinematics.
+Once a frame: shows the touch controls in play, a tap to skip over
+cinematics and the story intro, the console's own buttons over the console,
+and nothing wherever a finger is the mouse (menus, the PDA).
 ================
 */
 void IOS_TouchFrame( void ) {
-	bool inGame = sessLocal.mapSpawned && sessLocal.guiActive == NULL && !console->Active();
+	IOS_DoAsked();
+
 	bool gameFresh = Sys_Milliseconds() - gameReport.time < GAME_REPORT_MSEC;
-	if ( gameFresh && ( gameReport.pdaOpen || gameReport.inCinematic ) ) {
-		inGame = false;
+	int mode = IOSTOUCH_MODE_HIDDEN;
+	if ( console->Active() ) {
+		mode = IOSTOUCH_MODE_CONSOLE;
+	} else if ( sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiIntro ) {
+		mode = IOSTOUCH_MODE_SKIP;
+	} else if ( sessLocal.mapSpawned && sessLocal.guiActive == NULL ) {
+		if ( gameFresh && gameReport.inCinematic ) {
+			mode = IOSTOUCH_MODE_SKIP;
+		} else if ( !( gameFresh && gameReport.pdaOpen ) ) {
+			mode = IOSTOUCH_MODE_GAMEPLAY;
+		}
 	}
-	IOSTouch_Frame( inGame ? IOSTOUCH_MODE_GAMEPLAY : IOSTOUCH_MODE_HIDDEN );
+	IOSTouch_Frame( mode );
 }
 
 /*

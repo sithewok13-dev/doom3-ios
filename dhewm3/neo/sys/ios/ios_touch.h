@@ -54,11 +54,20 @@ enum {
 	IOSTOUCH_CMD_RUN	= 1 << 1,	// the run marker, or Always Run (vanilla stamina either way)
 };
 
-// What the overlay shows for: hidden in menus, the console, the PDA and
-// cinematics (a finger is the mouse there), the controls in play
+// What the overlay shows for: hidden in menus and the PDA (a finger is the
+// mouse there), the controls in play, a tap to skip over cinematics and the
+// story intro, and the console's keyboard and close buttons over the console
 enum {
 	IOSTOUCH_MODE_HIDDEN = 0,
 	IOSTOUCH_MODE_GAMEPLAY,
+	IOSTOUCH_MODE_SKIP,
+	IOSTOUCH_MODE_CONSOLE,
+};
+
+// the keys the on-screen keyboard sends the console besides text
+enum {
+	IOSTOUCH_KEY_BACKSPACE = 0,
+	IOSTOUCH_KEY_ENTER,
 };
 
 // the overlay (ios/IOSTouch.m)
@@ -71,6 +80,10 @@ void	IOS_Flashlight( void );				// whatever the game binds to F (the flashlight)
 void	IOS_Command( const char *text );	// a console command, run next frame
 void	IOS_PressKey( int sdlScancode );	// a key's press and release (Escape: the menu)
 int		IOS_CVarInteger( const char *name );
+void	IOS_Skip( void );					// skip the cinematic or the story intro
+void	IOS_ConsoleText( const char *text );	// typed into the console (UTF-8)
+void	IOS_ConsoleKey( int key );			// IOSTOUCH_KEY_*, into the console
+void	IOS_CloseConsole( void );
 
 #ifdef __cplusplus
 }

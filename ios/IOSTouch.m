@@ -18,6 +18,10 @@
  *   RUN (the run marker or Always Run), FPS and the keyboard (the console).
  * - Gyro aiming, OFF unless switched on: TOUCH aims while a thumb is down on
  *   the stick, the look area or a button that looks; ALWAYS aims always.
+ * - Over a cinematic or the story intro: a tap anywhere skips it.
+ * - Over the console: the on-screen keyboard (its own, typing straight into
+ *   the console) and buttons to hide and show it and to close the console;
+ *   elsewhere a finger is the mouse, as in the menus.
  *
  * What it holds goes into the usercmd as it's built (IOSTouch_TakeInput,
  * sys/ios/ios_input.cpp); taps are impulses, key presses or commands.
@@ -38,9 +42,9 @@
 
 // Look speed: degrees the view turns per point of finger travel. In the
 // ratio of the Jedi Knight port's look scale (1.6 across, 1.3 up and down);
-// to be matched to its feel on the phone.
-#define IOSTOUCH_LOOK_DEG_X 0.25f
-#define IOSTOUCH_LOOK_DEG_Y 0.20f
+// raised a fifth after the first try on the phone.
+#define IOSTOUCH_LOOK_DEG_X 0.30f
+#define IOSTOUCH_LOOK_DEG_Y 0.24f
 // The move stick: radius in points (and its knob's), dead zone as a fraction
 // of it; it appears wherever the left thumb lands in the left
 // IOSTOUCH_STICK_ZONE of the screen, and only while that thumb is down
@@ -424,6 +428,45 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	iosTouch_pitch -= (float)pitch * k;	// (the usercmd's pitch is + down)
 }
 
+// ---------------------------------------------------------------- the console's keyboard
+
+// Takes the on-screen keyboard's typing for the console: plain keys, no
+// corrections, capitals or curly quotes, which commands don't want
+@interface IOSConsoleKeys : UIView <UIKeyInput>
+@property (nonatomic) UITextAutocorrectionType autocorrectionType;
+@property (nonatomic) UITextAutocapitalizationType autocapitalizationType;
+@property (nonatomic) UITextSpellCheckingType spellCheckingType;
+@property (nonatomic) UITextSmartQuotesType smartQuotesType;
+@property (nonatomic) UITextSmartDashesType smartDashesType;
+@property (nonatomic) UITextSmartInsertDeleteType smartInsertDeleteType;
+@property (nonatomic) UIKeyboardType keyboardType;
+@property (nonatomic) UIReturnKeyType returnKeyType;
+@end
+
+@implementation IOSConsoleKeys
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+	self = [super initWithFrame:frame];
+	if (!self) return nil;
+	self.autocorrectionType = UITextAutocorrectionTypeNo;
+	self.autocapitalizationType = UITextAutocapitalizationTypeNone;
+	self.spellCheckingType = UITextSpellCheckingTypeNo;
+	self.smartQuotesType = UITextSmartQuotesTypeNo;
+	self.smartDashesType = UITextSmartDashesTypeNo;
+	self.smartInsertDeleteType = UITextSmartInsertDeleteTypeNo;
+	self.keyboardType = UIKeyboardTypeASCIICapable;
+	self.returnKeyType = UIReturnKeyGo;
+	return self;
+}
+
+- (BOOL)canBecomeFirstResponder { return YES; }
+- (BOOL)hasText { return YES; }	// (so backspace always reaches the console)
+- (void)insertText:(NSString*)text { IOS_ConsoleText(text.UTF8String); }
+- (void)deleteBackward { IOS_ConsoleKey(IOSTOUCH_KEY_BACKSPACE); }
+
+@end
+
 // ---------------------------------------------------------------- the overlay
 
 @interface IOSTouchOverlay : UIView
@@ -438,6 +481,11 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	CAShapeLayer*		runMarker;	// the run marker, with its line to the stick's ring
 	UILabel*			runLabel;
 	UIView*				trayBacking;
+	UILabel*			skipLabel;		// over a cinematic: "SKIP"
+	UIButton*			consoleKeysButton;	// over the console: hide / show the keyboard
+	UIButton*			consoleCloseButton;	// and close it
+	IOSConsoleKeys*		consoleKeys;
+	CFTimeInterval		lastSkip;
 	UISelectionFeedbackGenerator* tick;
 	UIImpactFeedbackGenerator* thump;
 }
@@ -527,10 +575,73 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	runLabel.hidden = YES;
 	[self addSubview:runLabel];
 
+	skipLabel = [[UILabel alloc] init];
+	skipLabel.text = @"SKIP \u25B6\u25B6";
+	skipLabel.textAlignment = NSTextAlignmentCenter;
+	skipLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBold];
+	skipLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.85];
+	skipLabel.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.28];
+	skipLabel.layer.cornerRadius = IOSTOUCH_TOP_R;
+	skipLabel.layer.borderWidth = 1.5;
+	skipLabel.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.6].CGColor;
+	skipLabel.layer.masksToBounds = YES;
+	skipLabel.alpha = IOSTOUCH_IDLE_ALPHA;
+	skipLabel.hidden = YES;
+	[self addSubview:skipLabel];
+
+	consoleKeys = [[IOSConsoleKeys alloc] initWithFrame:CGRectZero];
+	[self addSubview:consoleKeys];
+	consoleKeysButton = [self roundButton:@"keyboard" action:@selector(consoleKeysTapped)];
+	consoleCloseButton = [self roundButton:@"xmark" action:@selector(consoleCloseTapped)];
+
 	iosTouch_bAlwaysRun = [[NSUserDefaults standardUserDefaults] boolForKey:IOSTOUCH_ALWAYSRUN_DEFAULTS_KEY];
 	iosTouch_GyroSetup();
 	[self refreshLabels];
 	return self;
+}
+
+// a round button in the controls' style, with an SF Symbol (the console's)
+- (UIButton*)roundButton:(NSString*)symbol action:(SEL)action
+{
+	UIButton* b = [UIButton buttonWithType:UIButtonTypeCustom];
+	b.frame = CGRectMake(0, 0, 2 * IOSTOUCH_TOP_R, 2 * IOSTOUCH_TOP_R);
+	UIImageSymbolConfiguration* cfg = [UIImageSymbolConfiguration configurationWithPointSize:15 weight:UIImageSymbolWeightSemibold];
+	[b setImage:[UIImage systemImageNamed:symbol withConfiguration:cfg] forState:UIControlStateNormal];
+	b.tintColor = [UIColor colorWithWhite:1.0 alpha:0.9];
+	b.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.45];
+	b.layer.cornerRadius = IOSTOUCH_TOP_R;
+	b.layer.borderWidth = 1.5;
+	b.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.6].CGColor;
+	b.hidden = YES;
+	[b addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+	[self addSubview:b];
+	return b;
+}
+
+- (void)consoleKeysTapped
+{
+	if (consoleKeys.isFirstResponder) {
+		[consoleKeys resignFirstResponder];
+	} else {
+		[consoleKeys becomeFirstResponder];
+	}
+	[tick selectionChanged];
+}
+
+- (void)consoleCloseTapped
+{
+	[consoleKeys resignFirstResponder];
+	IOS_CloseConsole();
+	[tick selectionChanged];
+}
+
+// Over the console only its own buttons take touches; the rest go on to
+// SDL's view, where a finger is the mouse
+- (UIView*)hitTest:(CGPoint)p withEvent:(UIEvent*)event
+{
+	UIView* v = [super hitTest:p withEvent:event];
+	if (iosTouch_mode == IOSTOUCH_MODE_CONSOLE && v != consoleKeysButton && v != consoleCloseButton) return nil;
+	return v;
 }
 
 // ------------------------------------------------ layout
@@ -583,6 +694,11 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 	[self place:BTN_OPT_MODE at:CGPointMake(aCentres[BTN_TRAY_GYRO].x, optY)];
 	[self place:BTN_OPT_SENS at:CGPointMake(aCentres[BTN_TRAY_GYRO].x + IOSTOUCH_TRAY_STEP, optY)];
 	[self layoutTrayBacking];
+
+	// SKIP where FIRE is; the console's buttons where MENU and QUICK LOAD are
+	skipLabel.frame = CGRectMake(right - 96.0, bottom - 2 * IOSTOUCH_TOP_R, 96.0, 2 * IOSTOUCH_TOP_R);
+	consoleCloseButton.center = aCentres[BTN_MENU];
+	consoleKeysButton.center = aCentres[BTN_QLOAD];
 }
 
 - (void)layoutTrayBacking
@@ -751,6 +867,16 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event
 {
+	if (iosTouch_mode == IOSTOUCH_MODE_SKIP) {
+		// a tap anywhere skips (once, however many fingers)
+		CFTimeInterval now = CACurrentMediaTime();
+		if (now - lastSkip > 0.5) {
+			lastSkip = now;
+			IOS_Skip();
+			[thump impactOccurred];
+		}
+		return;
+	}
 	for (UITouch* t in touches) {
 		iosTouchSlot_t* s = iosTouch_SlotFor(t, 1);
 		if (!s) continue;
@@ -984,15 +1110,27 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 - (void)frame:(int)mode
 {
 	if (mode != iosTouch_mode) {
+		int wasConsole = iosTouch_mode == IOSTOUCH_MODE_CONSOLE;
 		iosTouch_mode = mode;
 		[self releaseAll];
 		self.hidden = (mode == IOSTOUCH_MODE_HIDDEN);
 		self.userInteractionEnabled = !self.hidden;	// hidden: a finger is SDL's mouse
+		for (int i = 0; i < BTN_FIRST_TRAY; i++) {
+			aButtonViews[i].hidden = (mode != IOSTOUCH_MODE_GAMEPLAY);
+		}
+		skipLabel.hidden = (mode != IOSTOUCH_MODE_SKIP);
+		consoleKeysButton.hidden = consoleCloseButton.hidden = (mode != IOSTOUCH_MODE_CONSOLE);
+		// the keyboard comes up with the console, and goes with it
+		if (mode == IOSTOUCH_MODE_CONSOLE) {
+			[consoleKeys becomeFirstResponder];
+		} else if (wasConsole) {
+			[consoleKeys resignFirstResponder];
+		}
 	}
-	if (!self.hidden) {
+	if (mode == IOSTOUCH_MODE_GAMEPLAY) {
 		[self updateHolds];
 	}
-	iosTouch_GyroUpdate(!self.hidden, self);
+	iosTouch_GyroUpdate(mode == IOSTOUCH_MODE_GAMEPLAY, self);
 }
 
 @end

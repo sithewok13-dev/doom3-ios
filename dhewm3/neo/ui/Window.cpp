@@ -1377,7 +1377,13 @@ void idWindow::Redraw(float x, float y) {
 		dc->PopClipRect();
 	}
 
-	if (gui_edit.GetBool()  || (flags & WIN_DESKTOP && !( flags & WIN_NOCURSOR )  && !hideCursor && (gui->Active() || ( flags & WIN_MENUGUI ) ))) {
+#ifdef D3_IOS
+	// iOS: the menus are touched, so no arrow is left lying on them
+	const bool touchMenu = ( flags & WIN_MENUGUI ) != 0;
+#else
+	const bool touchMenu = false;
+#endif
+	if (gui_edit.GetBool()  || (flags & WIN_DESKTOP && !( flags & WIN_NOCURSOR )  && !hideCursor && !touchMenu && (gui->Active() || ( flags & WIN_MENUGUI ) ))) {
 		dc->SetTransformInfo(vec3_origin, mat3_identity);
 		gui->DrawCursor();
 	}

@@ -843,7 +843,13 @@ bool	idConsoleLocal::ProcessEvent( const sysEvent_t *event, bool forceAccept ) {
 				// except we used shift+esc.
 				SetDisplayFraction( 0.2f );
 			} else {
+#ifdef D3_IOS
+				// iOS: a little less than half, so the edit line stays above
+				// the on-screen keyboard
+				SetDisplayFraction( 0.42f );
+#else
 				SetDisplayFraction( 0.5f );
+#endif
 			}
 			cvarSystem->SetCVarBool( "ui_chat", true );
 		}

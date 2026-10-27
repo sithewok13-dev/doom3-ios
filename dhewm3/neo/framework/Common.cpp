@@ -3150,7 +3150,12 @@ void idCommonLocal::Init( int argc, char **argv ) {
 		if ( !AddStartupCommands() ) {
 #endif
 			// if the user didn't give any commands, run default action
+#ifdef D3_IOS
+			// iOS: straight to the menu, without the intro videos
+			session->StartMenu( false );
+#else
 			session->StartMenu( true );
+#endif
 		}
 
 		// print all warnings queued during initialization
