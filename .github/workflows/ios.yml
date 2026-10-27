@@ -47,9 +47,11 @@ jobs:
 
       # SDL3 and OpenAL Soft, built for iOS by ios/build-deps.sh (a few
       # minutes); later runs restore them from the cache.
+      # (restore and save are separate steps so the dependencies are kept as
+      # soon as they're built, even when the app's build then fails)
       - name: Restore dependencies
         id: deps
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: build-ios-deps
           key: ios-deps-${{ steps.xcode.outputs.version }}-${{ env.IOS_DEPLOYMENT_TARGET }}-${{ hashFiles('ios/build-deps.sh', 'ios/toolchain.cmake') }}
@@ -57,6 +59,13 @@ jobs:
       - name: Build dependencies
         if: steps.deps.outputs.cache-hit != 'true'
         run: ios/build-deps.sh "$PWD/build-ios-deps"
+
+      - name: Save dependencies
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build-ios-deps
+          key: ${{ steps.deps.outputs.cache-primary-key }}
 
       - name: Build
         run: |

@@ -44,6 +44,7 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "sys/platform.h"
 #include "idlib/Str.h"
+#include "framework/Licensee.h"
 #include "framework/Common.h"
 #include "framework/CVarSystem.h"
 #include "framework/Game.h"
