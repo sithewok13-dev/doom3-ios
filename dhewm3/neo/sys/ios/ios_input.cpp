@@ -689,6 +689,10 @@ static void IOS_DoAsked( void ) {
 	}
 }
 
+bool IOS_IntroOver( void ) {
+	return introOver;
+}
+
 /*
 ================
 IOS_TouchFrame

@@ -462,7 +462,11 @@ const char *idWindow::RouteMouseCoords(float xd, float yd) {
 	int c = children.Num();
 	while (c > 0) {
 		idWindow *child = children[--c];
-		if (child->visible && !child->noEvents && child->Contains(child->drawRect, gui->CursorX(), gui->CursorY())) {
+		if (child->visible && !child->noEvents && child->Contains(child->drawRect, gui->CursorX(), gui->CursorY())
+#ifdef D3_IOS
+			&& !IOS_WideHidden( gui, child->text )
+#endif
+		) {
 
 			dc->SetCursor(child->cursor);
 			child->hover = true;
@@ -1041,7 +1045,11 @@ const char *idWindow::HandleEvent(const sysEvent_t *event, bool *updateVisuals) 
 
 				int c = children.Num();
 				while (--c >= 0) {
-					if (children[c]->visible && children[c]->Contains(children[c]->drawRect, gui->CursorX(), gui->CursorY()) && !(children[c]->noEvents)) {
+					if (children[c]->visible && children[c]->Contains(children[c]->drawRect, gui->CursorX(), gui->CursorY()) && !(children[c]->noEvents)
+#ifdef D3_IOS
+						&& !IOS_WideHidden( gui, children[c]->text )
+#endif
+					) {
 						idWindow *child = children[c];
 						if (event->evValue2) {
 							BringToTop(child);
@@ -1090,7 +1098,11 @@ const char *idWindow::HandleEvent(const sysEvent_t *event, bool *updateVisuals) 
 
 				int c = children.Num();
 				while (--c >= 0) {
-					if (children[c]->visible && children[c]->Contains(children[c]->drawRect, gui->CursorX(), gui->CursorY()) && !(children[c]->noEvents)) {
+					if (children[c]->visible && children[c]->Contains(children[c]->drawRect, gui->CursorX(), gui->CursorY()) && !(children[c]->noEvents)
+#ifdef D3_IOS
+						&& !IOS_WideHidden( gui, children[c]->text )
+#endif
+					) {
 						idWindow *child = children[c];
 						if (event->evValue2) {
 							BringToTop(child);
@@ -1501,22 +1513,33 @@ idWindow::Redraw
 #ifdef D3_IOS
 /*
 ================
-iOS: the main menu across the whole screen
+iOS: the main menu zoomed
 
 The main menu is made for 4:3; on the phone's wider screen the game draws it
 in the middle, black either side. With the app's CLASSIC menu style
-(IOS_SetWideMenu) its plain windows -- ones that show no words and can't be
-touched: its backgrounds, its frame, the plate along the bottom -- go
-across the whole screen instead: as wide as the screen if they're as wide
-as the menu, else 4:3 against the screen's edge they touch. Everything else
-(its words, its buttons, the planet) stays 4:3 in the middle, where the
-mouse (a finger) finds it.
+(IOS_SetWideMenu) the whole menu is drawn bigger instead, evenly, as a photo
+is zoomed: its bottom on the screen's bottom, its middle on the screen's
+middle, as wide as the screen at most (IOS_WIDE_ZOOM_MAX times), its top
+edge (nothing but its frame) off the top. Whenever a page shows words
+higher up than the zoom leaves room for, it eases back out until they fit
+(at most to the menu as it is). Its backgrounds as big as the menu are drawn
+across the whole screen first, under it, so no black is left either side.
+The mouse (a finger) is taken back the same way (IOS_WideFromScreen).
 ================
 */
+#define IOS_WIDE_ZOOM_MAX	1.4f
+
 static idUserInterface *iosWideMenu = NULL;
-static bool IOS_TextIs( idWinStr &text, const char *label );	// (below)
+static float iosWideZoom = 1.0f;
+static float iosWideTop = 0.0f;			// the highest words drawn, this frame
+static float iosWideTopLast = 0.0f;		// and last frame
+static idStrList iosWideHidden;
 
 void IOS_SetWideMenu( idUserInterface *gui ) {
+	if ( gui != iosWideMenu ) {
+		iosWideZoom = 1.0f;
+		iosWideTop = iosWideTopLast = 0.0f;
+	}
 	iosWideMenu = gui;
 }
 
@@ -1524,84 +1547,83 @@ bool IOS_IsWideMenu( idUserInterface *gui ) {
 	return gui != NULL && gui == iosWideMenu;
 }
 
-static bool iosWideBand;
-
-void IOS_SetWideBand( bool band ) {
-	iosWideBand = band;
+float IOS_WideZoom( void ) {
+	return iosWideZoom;
 }
 
-bool IOS_WideBand( void ) {
-	return iosWideBand;
+static float IOS_WideScaleX( float aspect ) {
+	return aspect > 1.4f ? ( float(VIRTUAL_WIDTH) / float(VIRTUAL_HEIGHT) ) / aspect : 1.0f;
 }
 
-int IOS_WideMode( const idRectangle &r, bool plain ) {
-	if ( iosWideBand && r.y >= IOS_WIDE_BAND_TOP ) {
-		return idDeviceContext::IOS_WIDE_BAND;
+// once a frame, before the menu's drawn: the zoom eased towards what fits
+// the words drawn last frame
+void IOS_WideFrame( float aspect ) {
+	iosWideTopLast = iosWideTop;
+	iosWideTop = VIRTUAL_HEIGHT;
+	float most = idMath::ClampFloat( 1.0f, IOS_WIDE_ZOOM_MAX, 1.0f / IOS_WideScaleX( aspect ) );
+	// (the top left showing: 480 - 480 / zoom, a little above the words)
+	float room = VIRTUAL_HEIGHT - iosWideTopLast + 6.0f;
+	float target = idMath::ClampFloat( 1.0f, most, VIRTUAL_HEIGHT / room );
+	iosWideZoom += ( target - iosWideZoom ) * 0.18f;
+	if ( idMath::Fabs( target - iosWideZoom ) < 0.002f ) {
+		iosWideZoom = target;
 	}
-	if ( !plain ) {
-		return idDeviceContext::IOS_WIDE_43;
-	}
-	if ( r.w >= VIRTUAL_WIDTH * 0.92f ) {
-		return idDeviceContext::IOS_WIDE_STRETCH;
-	}
-	if ( r.x <= 8.0f ) {
-		return idDeviceContext::IOS_WIDE_LEFT;
-	}
-	if ( r.x + r.w >= VIRTUAL_WIDTH - 8.0f ) {
-		return idDeviceContext::IOS_WIDE_RIGHT;
-	}
-	return idDeviceContext::IOS_WIDE_43;
 }
 
-void IOS_WideToScreen( const idRectangle &r, bool plain, float aspect, float *x, float *y, float *w, float *h ) {
-	float s = aspect > 1.4f ? ( float(VIRTUAL_WIDTH) / float(VIRTUAL_HEIGHT) ) / aspect : 1.0f;
-	float sx = s, ox = ( 1.0f - s ) * 0.5f * VIRTUAL_WIDTH, sy = 1.0f, oy = 0.0f;
-	switch ( IOS_WideMode( r, plain ) ) {
-	case idDeviceContext::IOS_WIDE_BAND:
-		sx = 1.0f;
-		ox = 0.0f;
-		sy = IOS_WIDE_BAND_SCALE;
-		oy = VIRTUAL_HEIGHT * ( 1.0f - IOS_WIDE_BAND_SCALE );
-		break;
-	case idDeviceContext::IOS_WIDE_STRETCH:
-		sx = 1.0f;
-		ox = 0.0f;
-		break;
-	case idDeviceContext::IOS_WIDE_LEFT:
-		ox = 0.0f;
-		break;
-	case idDeviceContext::IOS_WIDE_RIGHT:
-		ox = ( 1.0f - s ) * VIRTUAL_WIDTH;
-		break;
+void IOS_WideSeen( const idRectangle &r ) {
+	if ( r.h > 0.0f && r.w > 0.0f && r.y >= 0.0f && r.y < VIRTUAL_HEIGHT && r.y < iosWideTop
+		&& r.x + r.w > 0.0f && r.x < VIRTUAL_WIDTH ) {
+		iosWideTop = r.y;
 	}
+}
+
+void IOS_WideHide( const char * const *labels, int num ) {
+	iosWideHidden.Clear();
+	for ( int i = 0; i < num; i++ ) {
+		iosWideHidden.Append( labels[i] );
+	}
+}
+
+bool IOS_WideHidden( idUserInterface *gui, idWinStr &text ) {
+	if ( !IOS_IsWideMenu( gui ) || text.c_str()[0] == '\0' ) {
+		return false;
+	}
+	for ( int i = 0; i < iosWideHidden.Num(); i++ ) {
+		if ( IOS_TextIs( text, iosWideHidden[i] ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void IOS_WideToScreen( const idRectangle &r, float aspect, float *x, float *y, float *w, float *h ) {
+	float sx = IOS_WideScaleX( aspect ), sy = 1.0f, oy = 0.0f;
+	if ( iosWideMenu ) {
+		sx *= iosWideZoom;
+		sy = iosWideZoom;
+		oy = ( 1.0f - iosWideZoom ) * VIRTUAL_HEIGHT;
+	}
+	float ox = ( 1.0f - sx ) * ( VIRTUAL_WIDTH * 0.5f );
 	*x = ( r.x * sx + ox ) / VIRTUAL_WIDTH;
 	*y = ( r.y * sy + oy ) / VIRTUAL_HEIGHT;
 	*w = r.w * sx / VIRTUAL_WIDTH;
 	*h = r.h * sy / VIRTUAL_HEIGHT;
 }
 
-/*
-================
-idWindow::IOS_ShowLabel, IOS_Relabel
-
-The windows showing label hidden or shown; a window's words changed (the
-menu's links the phone has no use for)
-================
-*/
-void idWindow::IOS_ShowLabel( const char *label, bool show ) {
-	for ( int i = 0; i < drawWindows.Num(); i++ ) {
-		drawWin_t &d = drawWindows[i];
-		if ( d.win ) {
-			if ( IOS_TextIs( d.win->text, label ) ) {
-				d.win->visible = show;
-			}
-			d.win->IOS_ShowLabel( label, show );
-		} else if ( d.simp && IOS_TextIs( d.simp->text, label ) ) {
-			d.simp->visible = show;
-		}
-	}
+void IOS_WideFromScreen( float fx, float fy, float aspect, float *x, float *y ) {
+	float sx = IOS_WideScaleX( aspect ) * iosWideZoom;
+	*x = VIRTUAL_WIDTH * 0.5f + ( fx - 0.5f ) * VIRTUAL_WIDTH / sx;
+	*y = VIRTUAL_HEIGHT - ( 1.0f - fy ) * VIRTUAL_HEIGHT / iosWideZoom;
 }
 
+/*
+================
+idWindow::IOS_Relabel
+
+A window's words changed (the menu's link the phone has no use for, the
+app's)
+================
+*/
 bool idWindow::IOS_Relabel( const char *from, const char *to ) {
 	for ( int i = 0; i < drawWindows.Num(); i++ ) {
 		drawWin_t &d = drawWindows[i];
@@ -1687,6 +1709,11 @@ void idWindow::Redraw(float x, float y) {
 		}
 #ifdef D3_IOS
 		dc->iosWide = fixupFor43 && IOS_IsWideMenu( gui );
+		if ( dc->iosWide ) {
+			float sw = renderSystem->GetScreenWidth(), sh = renderSystem->GetScreenHeight();
+			IOS_WideFrame( sh > 0.0f ? sw / sh : 4.0f / 3.0f );
+			dc->IOS_SetMenuZoom( IOS_WideZoom() );
+		}
 #endif
 	}
 
@@ -1701,7 +1728,11 @@ void idWindow::Redraw(float x, float y) {
 		dc->EnableClipping(true);
 	}
 
+#ifdef D3_IOS
+	if (!visible || IOS_WideHidden( gui, text )) {
+#else
 	if (!visible) {
+#endif
 		if (fixupFor43) { // DG: gotta reset that before returning this function
 			dc->SetMenuScaleFix(false);
 #ifdef D3_IOS
@@ -1746,13 +1777,8 @@ void idWindow::Redraw(float x, float y) {
 	actualY = drawRect.y;
 
 #ifdef D3_IOS
-	if ( dc->iosWide ) {
-		// across the whole screen: what this window shows decides how (only
-		// the ones that can't be touched or read move off the 4:3, so a
-		// finger finds every button where it's drawn)
-		bool plain = typeid( *this ) == typeid( idWindow ) && text.c_str()[0] == '\0'
-			&& !scripts[ON_ACTION] && !scripts[ON_ACTIONRELEASE] && !scripts[ON_MOUSEENTER];
-		dc->IOS_SetMenuTransform( IOS_WideMode( drawRect, plain ) );
+	if ( dc->iosWide && text.c_str()[0] != '\0' && foreColor.w() > 0.05f ) {
+		IOS_WideSeen( drawRect );	// (words: the zoom leaves room for them)
 	}
 #endif
 
@@ -1768,6 +1794,15 @@ void idWindow::Redraw(float x, float y) {
 	}
 	//#modified-fva; END
 
+#ifdef D3_IOS
+	if ( dc->iosWide && drawRect.w >= VIRTUAL_WIDTH * 0.92f && drawRect.h >= VIRTUAL_HEIGHT * 0.92f ) {
+		// a background as big as the menu: across the whole screen too,
+		// under it (no black either side)
+		dc->IOS_SetMenuZoom( 0.0f );
+		DrawBackground( drawRect );
+		dc->IOS_SetMenuZoom( IOS_WideZoom() );
+	}
+#endif
 	DrawBackground(drawRect);
 
 	//#modified-fva; BEGIN

@@ -242,7 +242,11 @@ void idSimpleWindow::CalcClientRect(float xofs, float yofs) {
 
 void idSimpleWindow::Redraw(float x, float y) {
 
+#ifdef D3_IOS
+	if (!visible || IOS_WideHidden( gui, text )) {
+#else
 	if (!visible) {
+#endif
 		return;
 	}
 
@@ -271,9 +275,9 @@ void idSimpleWindow::Redraw(float x, float y) {
 	clientRect.Offset(x, y);
 	textRect.Offset(x, y);
 #ifdef D3_IOS
-	if ( dc->iosWide ) {
-		// (as idWindow::Redraw: a simple window can't be touched)
-		dc->IOS_SetMenuTransform( IOS_WideMode( drawRect, text.c_str()[0] == '\0' ) );
+	// (as idWindow::Redraw)
+	if ( dc->iosWide && text.c_str()[0] != '\0' && foreColor.w() > 0.05f ) {
+		IOS_WideSeen( drawRect );
 	}
 #endif
 	SetupTransforms(x, y);
@@ -281,6 +285,13 @@ void idSimpleWindow::Redraw(float x, float y) {
 	if ((flags & WIN_NOCLIP) || cstNoClipBackground) {
 		dc->EnableClipping( false );
 	}
+#ifdef D3_IOS
+	if ( dc->iosWide && drawRect.w >= VIRTUAL_WIDTH * 0.92f && drawRect.h >= VIRTUAL_HEIGHT * 0.92f ) {
+		dc->IOS_SetMenuZoom( 0.0f );
+		DrawBackground( drawRect );
+		dc->IOS_SetMenuZoom( IOS_WideZoom() );
+	}
+#endif
 	DrawBackground(drawRect);
 
 	//#modified-fva; BEGIN

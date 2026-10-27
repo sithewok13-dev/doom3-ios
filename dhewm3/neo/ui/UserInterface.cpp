@@ -428,15 +428,9 @@ const char *idUserInterfaceLocal::HandleEvent( const sysEvent_t *event, int _tim
 				cursorX = (event->evValue  - xOffset) * (float(VIRTUAL_WIDTH)/w);
 				cursorY = (event->evValue2 - yOffset) * (float(VIRTUAL_HEIGHT)/h);
 #ifdef D3_IOS
-				// the main menu's buttons along the bottom, across the
-				// screen and taller (IOS_WIDE_BAND): where they're drawn
-				if ( IOS_IsWideMenu( this ) && IOS_WideBand() ) {
-					float yv = event->evValue2 * ( float(VIRTUAL_HEIGHT) / realH );
-					float top = VIRTUAL_HEIGHT - ( VIRTUAL_HEIGHT - IOS_WIDE_BAND_TOP ) * IOS_WIDE_BAND_SCALE;
-					if ( yv >= top ) {
-						cursorX = event->evValue * ( float(VIRTUAL_WIDTH) / realW );
-						cursorY = VIRTUAL_HEIGHT - ( VIRTUAL_HEIGHT - yv ) / IOS_WIDE_BAND_SCALE;
-					}
+				// the main menu zoomed (IOS_SetWideMenu): back the same way
+				if ( IOS_IsWideMenu( this ) ) {
+					IOS_WideFromScreen( event->evValue / realW, event->evValue2 / realH, realW / realH, &cursorX, &cursorY );
 				}
 #endif
 			}
@@ -947,7 +941,7 @@ bool IOS_GuiLabelRect( idUserInterface *gui, const char *label, float *x, float 
 		return false;
 	}
 	float aspect = ( glConfig.winHeight > 0 ) ? float( glConfig.winWidth ) / float( glConfig.winHeight ) : 4.0f / 3.0f;
-	IOS_WideToScreen( r, false, aspect, x, y, w, h );
+	IOS_WideToScreen( r, aspect, x, y, w, h );
 	return true;
 }
 
@@ -955,13 +949,14 @@ bool IOS_GuiLabelRect( idUserInterface *gui, const char *label, float *x, float 
 ================
 IOS_WideMenuFrame
 
-The main menu across the whole screen, or not (the app's CLASSIC menu
-style), once a frame: across it, the links the phone has no use for gone
-(CREDITS, EXIT) and UPDATES the app's MENU STYLE; its layout written once
-to menu-layout.txt in the game's folder (Documents), as drawn
+The main menu zoomed, or not (the app's CLASSIC menu style), once a frame:
+zoomed, the links the phone has no use for gone (CREDITS, EXIT) and
+UPDATES the app's STYLE; its layout written once to menu-layout.txt in the
+game's folder (Documents), as drawn
 ================
 */
 void IOS_WideMenuFrame( idUserInterface *gui, bool wide ) {
+	static const char * const hidden[] = { "CREDITS", "EXIT" };
 	static bool applied;
 	static int framesWide;
 	static bool dumped;
@@ -970,14 +965,9 @@ void IOS_WideMenuFrame( idUserInterface *gui, bool wide ) {
 	if ( !desktop ) {
 		return;
 	}
-	// (the bottom buttons bigger only while the main page shows: they're
-	// still there under the others, where their places are needed)
-	float bx, by;
-	IOS_SetWideBand( wide && desktop->IOS_FindLabel( "LOAD GAME", &bx, &by ) && desktop->IOS_FindLabel( "MULTIPLAYER", &bx, &by ) );
 	if ( wide ) {
-		desktop->IOS_ShowLabel( "CREDITS", false );
-		desktop->IOS_ShowLabel( "EXIT", false );
-		desktop->IOS_Relabel( "UPDATES", "MENU STYLE" );
+		IOS_WideHide( hidden, 2 );
+		desktop->IOS_Relabel( "UPDATES", "STYLE" );
 		applied = true;
 		if ( !dumped && ++framesWide > 3 ) {
 			dumped = true;
@@ -992,9 +982,7 @@ void IOS_WideMenuFrame( idUserInterface *gui, bool wide ) {
 		}
 	} else if ( applied ) {
 		applied = false;
-		desktop->IOS_Relabel( "MENU STYLE", "UPDATES" );
-		desktop->IOS_ShowLabel( "CREDITS", true );
-		desktop->IOS_ShowLabel( "EXIT", true );
+		desktop->IOS_Relabel( "STYLE", "UPDATES" );
 	}
 }
 #endif

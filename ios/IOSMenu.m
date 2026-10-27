@@ -328,7 +328,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	int					bInGame;
 	int					gameKind;
 	UIButton*			backToMenu;		// over DOOM 3's own menu: back to this one
-	UIButton*			styleButton;	// over DOOM 3's MENU STYLE, across the screen
+	UIButton*			styleButton;	// over DOOM 3's STYLE (its UPDATES), zoomed
 	int					style;			// IOSMENU_STYLE_CLASSIC or _MODERN
 	IOSMenuGrid*		sideLeft;		// classic: the sides of DOOM 3's menu
 	IOSMenuGrid*		sideRight;
@@ -839,9 +839,9 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	// over DOOM 3's own main menu as it is: back to the app's (for good, if
 	// it was picked)
 	backToMenu.hidden = !(bMain && !bShow && st != IOSMENU_STYLE_CLASSIC);
-	// CLASSIC: over its MENU STYLE (UPDATES, once), the styles to pick from
+	// CLASSIC: over its STYLE (UPDATES, once), the styles to pick from
 	float x, y, w, h;
-	styleButton.hidden = !(bMain && st == IOSMENU_STYLE_CLASSIC && IOS_MenuLabelRect("MENU STYLE", &x, &y, &w, &h));
+	styleButton.hidden = !(bMain && st == IOSMENU_STYLE_CLASSIC && IOS_MenuLabelRect("STYLE", &x, &y, &w, &h));
 	if (!styleButton.hidden) {
 		CGSize sz = self.superview.bounds.size;
 		styleButton.frame = CGRectMake(x * sz.width, y * sz.height, w * sz.width, h * sz.height);
@@ -890,7 +890,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 
 static IOSMenuView* iosMenu_pView = nil;
 static UIButton* iosMenu_pBack = nil;	// over DOOM 3's own menu: back to this one
-static UIButton* iosMenu_pStyle = nil;	// over its MENU STYLE
+static UIButton* iosMenu_pStyle = nil;	// over its STYLE
 
 // Once a frame (the touch controls': IOSTouch_Frame), under their overlay in
 // the game's view; bOverMenus: the menus are up

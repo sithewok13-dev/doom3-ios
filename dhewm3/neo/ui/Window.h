@@ -175,13 +175,18 @@ struct idTransitionData {
 class idUserInterfaceLocal;
 #ifdef D3_IOS
 class idUserInterface;
+class idWinStr;
 void	IOS_SetWideMenu( idUserInterface *gui );
 bool	IOS_IsWideMenu( idUserInterface *gui );
-int		IOS_WideMode( const idRectangle &r, bool plain );
-void	IOS_SetWideBand( bool band );
-bool	IOS_WideBand( void );
-// where r (in the 640 x 480) is drawn, wide, as fractions of the screen
-void	IOS_WideToScreen( const idRectangle &r, bool plain, float aspect, float *x, float *y, float *w, float *h );
+float	IOS_WideZoom( void );
+void	IOS_WideFrame( float aspect );
+void	IOS_WideSeen( const idRectangle &r );
+void	IOS_WideHide( const char * const *labels, int num );
+bool	IOS_WideHidden( idUserInterface *gui, idWinStr &text );
+// where r (in the 640 x 480) is drawn, as fractions of the screen
+void	IOS_WideToScreen( const idRectangle &r, float aspect, float *x, float *y, float *w, float *h );
+// a point on the screen (fractions of it), back in the 640 x 480
+void	IOS_WideFromScreen( float sx, float sy, float aspect, float *x, float *y );
 #endif
 
 class idWindow {
@@ -205,7 +210,6 @@ public:
 	bool			IOS_FindLabel( const char *label, float *x, float *y );
 	bool			IOS_FindLabelRect( const char *label, idRectangle *r );
 	// iOS: the menu across the whole screen (Window.cpp)
-	void			IOS_ShowLabel( const char *label, bool show );
 	bool			IOS_Relabel( const char *from, const char *to );
 	void			IOS_Dump( FILE *f, int depth );
 #endif

@@ -230,7 +230,8 @@ int IOS_MenuLabelRect( const char *label, float *x, float *y, float *w, float *h
 
 void IOS_MenuFrame( void ) {
 	// CLASSIC: DOOM 3's own main menu across the whole screen
-	IOS_WideMenuFrame( sessLocal.guiMainMenu, IOS_MenuStyle() == 0 );
+	// (not over the intro videos: they're as they are)
+	IOS_WideMenuFrame( sessLocal.guiMainMenu, IOS_MenuStyle() == 0 && IOS_IntroOver() );
 
 	if ( newGameSkill >= 0 ) {
 		int skill = newGameSkill;

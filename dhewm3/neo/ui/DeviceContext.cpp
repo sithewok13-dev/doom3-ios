@@ -263,32 +263,17 @@ bool idDeviceContext::ClippedCoords(float *x, float *y, float *w, float *h, floa
 
 // DG: this is used for the "make sure menus are rendered as 4:3" hack
 #ifdef D3_IOS
-void idDeviceContext::IOS_SetMenuTransform( int mode ) {
+void idDeviceContext::IOS_SetMenuZoom( float zoom ) {
+	if ( zoom <= 0.0f ) {
+		fixScaleForMenu.Set( 1, 1 );
+		fixOffsetForMenu.Set( 0, 0 );
+		return;
+	}
 	float w = renderSystem->GetScreenWidth();
 	float h = renderSystem->GetScreenHeight();
 	float scaleX = ( h > 0.0f && w / h > 1.4f ) ? ( float(VIRTUAL_WIDTH) / float(VIRTUAL_HEIGHT) ) / ( w / h ) : 1.0f;
-	switch ( mode ) {
-	case IOS_WIDE_STRETCH:
-		fixScaleForMenu.Set( 1, 1 );
-		fixOffsetForMenu.Set( 0, 0 );
-		break;
-	case IOS_WIDE_BAND:
-		fixScaleForMenu.Set( 1, IOS_WIDE_BAND_SCALE );
-		fixOffsetForMenu.Set( 0, VIRTUAL_HEIGHT * ( 1.0f - IOS_WIDE_BAND_SCALE ) );
-		break;
-	case IOS_WIDE_LEFT:
-		fixScaleForMenu.Set( scaleX, 1 );
-		fixOffsetForMenu.Set( 0, 0 );
-		break;
-	case IOS_WIDE_RIGHT:
-		fixScaleForMenu.Set( scaleX, 1 );
-		fixOffsetForMenu.Set( ( 1.0f - scaleX ) * VIRTUAL_WIDTH, 0 );
-		break;
-	default:
-		fixScaleForMenu.Set( scaleX, 1 );
-		fixOffsetForMenu.Set( ( 1.0f - scaleX ) * ( VIRTUAL_WIDTH * 0.5f ), 0 );
-		break;
-	}
+	fixScaleForMenu.Set( zoom * scaleX, zoom );
+	fixOffsetForMenu.Set( ( 1.0f - zoom * scaleX ) * ( VIRTUAL_WIDTH * 0.5f ), ( 1.0f - zoom ) * VIRTUAL_HEIGHT );
 }
 #endif
 
