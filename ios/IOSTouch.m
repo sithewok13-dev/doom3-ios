@@ -1584,7 +1584,8 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		IOS_SetCheat(iosTouch_bShowCheat);
 		if (iosTouch_bShowCheat) {
 			[self cheatSwitchedOn];
-			[self showToast:@"Cheats on. Hold CHEAT here to pick its sound"];
+			if (![[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY])
+				[self showToast:@"Cheats on. Hold CHEAT here to pick a sound"];
 		}
 		[self showButtons];
 		break;
@@ -2189,12 +2190,8 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 - (void)cheatSwitchedOn
 {
 	[thump impactOccurred];
+	// (none until the player has heard and picked one)
 	NSString* name = [[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY];
-	if (!name) {
-		// none picked yet: the first of DOOM 3's that will do (Betruger's)
-		char first[1][64];
-		if (IOS_GetCheatSounds(first, 1) > 0) name = [NSString stringWithUTF8String:first[0]];
-	}
 	if (name.length) IOS_PlaySound(name.UTF8String);
 }
 
@@ -2364,7 +2361,6 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	if (bListSounds) {
 		NSString* name = [NSString stringWithUTF8String:aSounds[indexPath.row]];
 		NSString* picked = [[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY];
-		if (!picked && indexPath.row == 0) picked = name;	// (the one used until one is picked)
 		cell.textLabel.text = [name stringByReplacingOccurrencesOfString:@"_" withString:@" "];
 		cell.detailTextLabel.text = nil;
 		cell.accessoryType = [name isEqualToString:picked] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
