@@ -1,0 +1,26 @@
+Bugs:
+
+- Some GUIs changes are not syncing (Door guis and health station guis for example.)
+- Clientside cameras guis are not working
+- Elevators working laggy (improved but still laggy)
+- npc binded light not working
+- PDA tip message is empty
+- Closing pda shows the wrong anim (raise instead of lower)
+- Downloading emails does not work clientside
+- NPCs keep talking if you just look at them (focus) without pressing click to talk again
+- Location position in player GUIs is not shown
+- Enviro Suit is not working
+
+PER MAP:
+
+- Mars city 1:
+  + laser scan does not make any sound at all
+
+- Mars city 2:
+  + Kelly video not playing
+
+- Alpha labs sector 2
+	+ GUI cameras not working
+
+ - Phobos labs 2: After deafiting invulnerability hunter, there is a repeated idMsg bit overflow. (not crash but spam the console each frame)
+ - Phobos labs 3: same idMsg bit overflow (I believe this is related to the player picking up the invulnerability hunter artifact upgrade)

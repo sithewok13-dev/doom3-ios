@@ -35,7 +35,12 @@ cmake --build build-ios                # build-ios/DOOM3.app
 - `dhewm3/`: dhewm3 1.5.5 (imported unmodified, then changed in later commits)
   with the OpenGL ES renderer and the iOS system code (`neo/sys/ios/`)
 - `ios/`: the app around it: Info.plist, icons, the first-launch screen, the
-  dependency build
+  touch controls, finding Wi-Fi games, the dependency build
+- `librecoop/`: [LibreCoop](https://github.com/Stradex/librecoop) (co-op and
+  survival for both games), imported at the version in `librecoop/UPSTREAM`,
+  with the touch controls' hooks added to its player code; its game code is
+  linked in, and its mod folders (its own defs, scripts and strings) come in
+  the app and are put in Documents, where the Mods menu has them
 - `docs/ios/PLAN.md`: the plan and the decisions made so far
 
 ## Credits
@@ -45,6 +50,7 @@ cmake --build build-ios                # build-ios/DOOM3.app
 - The OpenGL ES renderer from Tom Kidd's [DOOM3-iOS](https://github.com/tomkidd/DOOM3-iOS),
   which this repository was forked from, and Gabriel Cuvillier's
   [d3wasm](https://github.com/gabrielcuvillier/d3wasm)
+- [LibreCoop](https://github.com/Stradex/librecoop) by Stradex, for co-op
 - [SDL](https://www.libsdl.org) and [OpenAL Soft](https://openal-soft.org)
 
 The code is GPLv3, like the DOOM 3 source.

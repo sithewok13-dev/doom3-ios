@@ -48,6 +48,30 @@ add_custom_command(TARGET ${DHEWM3BINARY} POST_BUILD
 	COMMENT "Bundling ANGLE"
 	VERBATIM)
 
+# LibreCoop's mod folders (its defs, scripts and strings; no game data): in
+# the app as Mods/<folder>/pak000.zip (a .pk4 as LibreCoop's autopak.py
+# makes it) and description.txt, for IOS_InstallMods to put in Documents.
+# (A .zip, so the package step's check that no game data is in the app
+# stays simple: no .pk4 at all.)
+if(LIBRECOOP_DIR AND EXISTS "${LIBRECOOP_DIR}/librecoop")
+	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/librecoop/description.txt" "LibreCoop: co-op and survival for DOOM 3")
+	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/librecoopd3xp/description.txt" "LibreCoop: co-op and survival for Resurrection of Evil")
+	foreach(mod librecoop librecoopd3xp)
+		if(mod STREQUAL "librecoop")
+			set(modsrc "${LIBRECOOP_DIR}/librecoop")
+		else()
+			set(modsrc "${LIBRECOOP_DIR}/librecoopxp")
+		endif()
+		add_custom_command(TARGET ${DHEWM3BINARY} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E make_directory "${IOS_BUNDLE_DIR}/Mods/${mod}"
+			COMMAND ${CMAKE_COMMAND} -E chdir "${modsrc}"
+				${CMAKE_COMMAND} -E tar cf "${IOS_BUNDLE_DIR}/Mods/${mod}/pak000.zip" --format=zip def script strings
+			COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_BINARY_DIR}/${mod}/description.txt" "${IOS_BUNDLE_DIR}/Mods/${mod}/description.txt"
+			COMMENT "Bundling LibreCoop's ${mod} mod folder"
+			VERBATIM)
+	endforeach()
+endif()
+
 # Icons and the launch screen colour: compile the asset catalog into the
 # bundle, as Xcode would, and add the icon keys actool reports to Info.plist.
 add_custom_command(TARGET ${DHEWM3BINARY} POST_BUILD

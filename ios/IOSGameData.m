@@ -45,6 +45,39 @@ bool IOS_HasGameFolder(const char *folder) {
 	return [fm fileExistsAtPath:[dir stringByAppendingPathComponent:@"pak000.pk4"]];
 }
 
+/*
+ * LibreCoop (co-op and survival; its game code is linked in): its mod
+ * folders, which come in the app (Mods/, its pak as a .zip), put in
+ * Documents beside the game's own, so the game's Mods menu has them --
+ * librecoop for DOOM 3, librecoopd3xp for Resurrection of Evil if its files
+ * are there. Again whenever the app's build changes, so they stay as the
+ * linked game code expects.
+ */
+void IOS_InstallMods(void) {
+	NSFileManager *fm = [NSFileManager defaultManager];
+	NSString *docs = DocumentsPath();
+	NSString *mods = [[NSBundle mainBundle].resourcePath stringByAppendingPathComponent:@"Mods"];
+	NSString *build = [NSBundle mainBundle].infoDictionary[@"CFBundleVersion"] ?: @"";
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	static const char * const aMods[][2] = { { "librecoop", "base" }, { "librecoopd3xp", "d3xp" } };
+	for (int i = 0; i < 2; i++) {
+		NSString *mod = [NSString stringWithUTF8String:aMods[i][0]];
+		NSString *from = [mods stringByAppendingPathComponent:mod];
+		NSString *to = [docs stringByAppendingPathComponent:mod];
+		NSString *key = [@"iosInstalledMod." stringByAppendingString:mod];
+		if (![fm fileExistsAtPath:from] || !IOS_HasGameFolder(aMods[i][1])) continue;
+		if ([[defaults stringForKey:key] isEqualToString:build] && [fm fileExistsAtPath:[to stringByAppendingPathComponent:@"pak000.pk4"]]) continue;
+		[fm createDirectoryAtPath:to withIntermediateDirectories:YES attributes:nil error:nil];
+		for (NSString *file in @[ @"pak000", @"description.txt" ]) {
+			NSString *src = [from stringByAppendingPathComponent:[file isEqualToString:@"pak000"] ? @"pak000.zip" : file];
+			NSString *dst = [to stringByAppendingPathComponent:[file isEqualToString:@"pak000"] ? @"pak000.pk4" : file];
+			[fm removeItemAtPath:dst error:nil];
+			[fm copyItemAtPath:src toPath:dst error:nil];
+		}
+		[defaults setObject:build forKey:key];
+	}
+}
+
 @interface IOSGameDataViewController : UIViewController
 @property (nonatomic) BOOL ready;
 @property (nonatomic, strong) UILabel *missingLabel;

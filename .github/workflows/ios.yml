@@ -1,5 +1,6 @@
 # Builds the DOOM 3 app for iOS (arm64 device): dhewm3 with the OpenGL ES
-# renderer, both games (DOOM 3 and Resurrection of Evil) in one app, and
+# renderer, both games (DOOM 3 and Resurrection of Evil) in one app, with
+# LibreCoop's co-op for each (librecoop/), and
 # packages it as an UNSIGNED .ipa (ad-hoc signature only), kept as a workflow
 # artifact. Sideload it (SideStore, Feather) or hand it to ios-pipeline's
 # testflight-ipa.yml for TestFlight.
@@ -206,6 +207,14 @@ jobs:
             echo "::error::Game data (.pk4) found in the app bundle"
             exit 1
           fi
+          # LibreCoop's mod folders: only its own defs, scripts and strings
+          for z in "$APP"/Mods/*/pak000.zip; do
+            unzip -Z1 "$z"
+            if unzip -Z1 "$z" | grep -qvE '^(def|script|strings)(/|$)'; then
+              echo "::error::Something other than LibreCoop's defs, scripts and strings in $z"
+              exit 1
+            fi
+          done
           # ANGLE's frameworks first, then the app around them
           for f in "$APP"/Frameworks/*.framework; do
             codesign --force --sign - --timestamp=none "$f"
@@ -222,6 +231,8 @@ jobs:
           ls Payload/DOOM3.app/Frameworks
           # both games' code is in (and nothing else of theirs is visible)
           nm -g Payload/DOOM3.app/DOOM3 | grep -E 'GetGameAPI_(base|d3xp)$'
+          # and LibreCoop's co-op for each
+          nm -g Payload/DOOM3.app/DOOM3 | grep -E 'GetGameAPI_librecoop(d3xp)?$'
           ls -l DOOM3-iOS-unsigned.ipa
 
       - name: Upload .ipa

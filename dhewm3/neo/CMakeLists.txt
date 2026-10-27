@@ -1561,6 +1561,46 @@ if(IOS)
 	ios_game_module(base "GAME_DLL" game "${src_game}")
 	ios_game_module(d3xp "GAME_DLL;_D3XP;CTF" d3xp "${src_d3xp}")
 
+	# LibreCoop (../../librecoop): co-op and survival for both games, as two
+	# more games linked in, librecoop and librecoopd3xp (the names of the mod
+	# folders it plays from). Built as its SDK builds it on other systems:
+	# its game code with its own headers, config.h and idlib.
+	set(LIBRECOOP_DIR "${CMAKE_SOURCE_DIR}/../../librecoop")
+	if(EXISTS "${LIBRECOOP_DIR}/game")
+		set(is_big_endian 0)
+		configure_file("${LIBRECOOP_DIR}/config.h.in" "${CMAKE_CURRENT_BINARY_DIR}/librecoop/config.h")
+		set(lc_includes "${CMAKE_CURRENT_BINARY_DIR}/librecoop" "${LIBRECOOP_DIR}")
+
+		file(GLOB_RECURSE lc_src_idlib "${LIBRECOOP_DIR}/idlib/*.cpp")
+		list(FILTER lc_src_idlib EXCLUDE REGEX "/(Surface_Polytope|Complex)\\.cpp$")
+		add_library(lc_idlib STATIC ${lc_src_idlib})
+		target_include_directories(lc_idlib BEFORE PRIVATE ${lc_includes})
+
+		function(ios_librecoop_module name defs gamedir)
+			# (its source lists, less the files its CMakeLists leaves out)
+			file(GLOB_RECURSE sources "${LIBRECOOP_DIR}/${gamedir}/*.cpp")
+			list(FILTER sources EXCLUDE REGEX "/(EndLevel|gamesys/Callbacks)\\.cpp$")
+			add_library(${name}_objs OBJECT ${sources})
+			set_target_properties(${name}_objs PROPERTIES COMPILE_DEFINITIONS "${defs};GetGameAPI=GetGameAPI_${name}")
+			target_include_directories(${name}_objs BEFORE PRIVATE ${lc_includes} "${LIBRECOOP_DIR}/${gamedir}")
+			set(merged "${CMAKE_CURRENT_BINARY_DIR}/${name}_game.o")
+			add_custom_command(OUTPUT "${merged}"
+				COMMAND ${CMAKE_CXX_COMPILER} -r -nostdlib
+					-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}
+					-Wl,-exported_symbol,_GetGameAPI_${name}
+					-o "${merged}" "$<TARGET_OBJECTS:${name}_objs>" "$<TARGET_FILE:lc_idlib>"
+				DEPENDS ${name}_objs lc_idlib "$<TARGET_OBJECTS:${name}_objs>"
+				COMMENT "Merging the ${name} game code into ${name}_game.o"
+				COMMAND_EXPAND_LISTS VERBATIM)
+			set_source_files_properties("${merged}" PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
+			target_sources(${DHEWM3BINARY} PRIVATE "${merged}")
+		endfunction()
+
+		ios_librecoop_module(librecoop "GAME_DLL" game)
+		ios_librecoop_module(librecoopd3xp "GAME_DLL;_D3XP;CTF" d3xp)
+		target_compile_definitions(${DHEWM3BINARY} PRIVATE IOS_LIBRECOOP=1)
+	endif()
+
 	# the app around the engine: Info.plist, first-launch screen, icons
 	if(NOT IOS_APP_DIR)
 		set(IOS_APP_DIR "${CMAKE_SOURCE_DIR}/../../ios")

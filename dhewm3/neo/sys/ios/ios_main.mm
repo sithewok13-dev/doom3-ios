@@ -31,7 +31,9 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
  * Support/dhewm3: backed up, but out of the way in Files.
  *
  * Game code: iOS can't load libraries at run time, so both games are linked
- * in (see the end of CMakeLists.txt) as GetGameAPI_base and GetGameAPI_d3xp.
+ * in (see the end of CMakeLists.txt) as GetGameAPI_base and GetGameAPI_d3xp,
+ * and LibreCoop's co-op for each as GetGameAPI_librecoop and
+ * GetGameAPI_librecoopd3xp.
  * Sys_DLL_Load() hands those out by library name, so the engine loads and
  * switches games (fs_game, the Mods menu) just as it does on other systems.
  */
@@ -55,9 +57,15 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 // the app around the engine (ios/IOSGameData.m)
 extern "C" void IOS_WaitForGameData( void );
 extern "C" bool IOS_HasGameFolder( const char *folder );
+extern "C" void IOS_InstallMods( void );
 
 extern "C" gameExport_t *GetGameAPI_base( gameImport_t *import );
 extern "C" gameExport_t *GetGameAPI_d3xp( gameImport_t *import );
+#ifdef IOS_LIBRECOOP
+// LibreCoop's co-op and survival, for each game (../../librecoop)
+extern "C" gameExport_t *GetGameAPI_librecoop( gameImport_t *import );
+extern "C" gameExport_t *GetGameAPI_librecoopd3xp( gameImport_t *import );
+#endif
 
 static char base_path[MAXPATHLEN];
 static char exe_path[MAXPATHLEN];
@@ -139,6 +147,10 @@ static const struct {
 } gameModules[] = {
 	{ "base", GetGameAPI_base },
 	{ "d3xp", GetGameAPI_d3xp },
+#ifdef IOS_LIBRECOOP
+	{ "librecoop", GetGameAPI_librecoop },
+	{ "librecoopd3xp", GetGameAPI_librecoopd3xp },
+#endif
 };
 
 uintptr_t Sys_DLL_Load( const char *path ) {
@@ -183,6 +195,8 @@ int main( int argc, char *argv[] ) {
 		// until the player's game files are in Documents, a native screen
 		// says what to copy where
 		IOS_WaitForGameData();
+		// LibreCoop's mod folders, beside the game's (its code is linked in)
+		IOS_InstallMods();
 
 		SetPaths();
 	}
