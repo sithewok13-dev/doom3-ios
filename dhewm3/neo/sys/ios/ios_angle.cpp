@@ -56,7 +56,7 @@ static EGLDisplay GetMetalDisplay( void ) {
 			EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
 			EGL_NONE
 		};
-		EGLDisplay metal = getPlatformDisplayEXT( EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, attribs );
+		EGLDisplay metal = getPlatformDisplayEXT( EGL_PLATFORM_ANGLE_ANGLE, (void *)(uintptr_t)EGL_DEFAULT_DISPLAY, attribs );
 		if ( metal != EGL_NO_DISPLAY ) {
 			return metal;
 		}

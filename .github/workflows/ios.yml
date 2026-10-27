@@ -172,7 +172,7 @@ jobs:
               -DCMAKE_PREFIX_PATH="$DEPS" -DCMAKE_FIND_ROOT_PATH="$DEPS" \
               -DANGLE_ROOT="$PWD/angle-prebuilt" \
               -DIOS_BUILD_NUMBER="${{ github.run_number }}" &&
-            cmake --build build-ios
+            cmake --build build-ios -- -k 0   # (every error at once, not just the first)
           } > build.log 2>&1
           status=$?
           set -e
