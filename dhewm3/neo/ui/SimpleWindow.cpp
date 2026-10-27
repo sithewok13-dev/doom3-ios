@@ -270,6 +270,12 @@ void idSimpleWindow::Redraw(float x, float y) {
 	drawRect.Offset(x, y);
 	clientRect.Offset(x, y);
 	textRect.Offset(x, y);
+#ifdef D3_IOS
+	if ( dc->iosWide ) {
+		// (as idWindow::Redraw: a simple window can't be touched)
+		dc->IOS_SetMenuTransform( IOS_WideMode( drawRect, text.c_str()[0] == '\0' ) );
+	}
+#endif
 	SetupTransforms(x, y);
 	// fva's cst: added cstNoClipBackground
 	if ((flags & WIN_NOCLIP) || cstNoClipBackground) {

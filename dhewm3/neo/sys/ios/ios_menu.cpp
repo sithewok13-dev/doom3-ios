@@ -224,7 +224,14 @@ IOS_MenuFrame
 What the menu asked for, between frames
 ================
 */
+int IOS_MenuLabelRect( const char *label, float *x, float *y, float *w, float *h ) {
+	return IOS_MenuIsMain() && IOS_GuiLabelRect( sessLocal.guiMainMenu, label, x, y, w, h );
+}
+
 void IOS_MenuFrame( void ) {
+	// CLASSIC: DOOM 3's own main menu across the whole screen
+	IOS_WideMenuFrame( sessLocal.guiMainMenu, IOS_MenuStyle() == 0 );
+
 	if ( newGameSkill >= 0 ) {
 		int skill = newGameSkill;
 		newGameSkill = -1;

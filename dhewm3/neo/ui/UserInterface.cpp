@@ -926,3 +926,61 @@ bool IOS_GuiFindLabel( idUserInterface *gui, const char *label, float *x, float 
 	return desktop && desktop->IOS_FindLabel( label, x, y );
 }
 #endif
+
+#ifdef D3_IOS
+bool IOS_GuiLabelRect( idUserInterface *gui, const char *label, float *x, float *y, float *w, float *h ) {
+	idWindow *desktop = gui ? static_cast<idUserInterfaceLocal *>( gui )->GetDesktop() : NULL;
+	idRectangle r;
+	if ( !desktop || !desktop->IOS_FindLabelRect( label, &r ) ) {
+		return false;
+	}
+	*x = r.x;
+	*y = r.y;
+	*w = r.w;
+	*h = r.h;
+	return true;
+}
+
+/*
+================
+IOS_WideMenuFrame
+
+The main menu across the whole screen, or not (the app's CLASSIC menu
+style), once a frame: across it, the links the phone has no use for gone
+(CREDITS, EXIT) and UPDATES the app's MENU STYLE; its layout written once
+to menu-layout.txt in the game's folder (Documents), as drawn
+================
+*/
+void IOS_WideMenuFrame( idUserInterface *gui, bool wide ) {
+	static bool applied;
+	static int framesWide;
+	static bool dumped;
+	IOS_SetWideMenu( wide ? gui : NULL );
+	idWindow *desktop = gui ? static_cast<idUserInterfaceLocal *>( gui )->GetDesktop() : NULL;
+	if ( !desktop ) {
+		return;
+	}
+	if ( wide ) {
+		desktop->IOS_ShowLabel( "CREDITS", false );
+		desktop->IOS_ShowLabel( "EXIT", false );
+		desktop->IOS_Relabel( "UPDATES", "MENU STYLE" );
+		applied = true;
+		if ( !dumped && ++framesWide > 3 ) {
+			dumped = true;
+			idStr path = cvarSystem->GetCVarString( "fs_basepath" );
+			path.AppendPath( "menu-layout.txt" );
+			FILE *f = fopen( path.c_str(), "w" );
+			if ( f ) {
+				fprintf( f, "%s\n", gui->Name() );
+				desktop->IOS_Dump( f, 0 );
+				fclose( f );
+			}
+		}
+	} else if ( applied ) {
+		applied = false;
+		desktop->IOS_Relabel( "MENU STYLE", "UPDATES" );
+		desktop->IOS_ShowLabel( "CREDITS", true );
+		desktop->IOS_ShowLabel( "EXIT", true );
+	}
+}
+#endif

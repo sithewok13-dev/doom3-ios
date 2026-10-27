@@ -173,6 +173,13 @@ struct idTransitionData {
 
 
 class idUserInterfaceLocal;
+#ifdef D3_IOS
+class idUserInterface;
+void	IOS_SetWideMenu( idUserInterface *gui );
+bool	IOS_IsWideMenu( idUserInterface *gui );
+int		IOS_WideMode( const idRectangle &r, bool plain );
+#endif
+
 class idWindow {
 public:
 	idWindow(idUserInterfaceLocal *gui);
@@ -192,6 +199,11 @@ public:
 	bool			IOS_ListShown( const char *listName );
 	// iOS: the middle of the window showing label (as drawn last), if one does
 	bool			IOS_FindLabel( const char *label, float *x, float *y );
+	bool			IOS_FindLabelRect( const char *label, idRectangle *r );
+	// iOS: the menu across the whole screen (Window.cpp)
+	void			IOS_ShowLabel( const char *label, bool show );
+	bool			IOS_Relabel( const char *from, const char *to );
+	void			IOS_Dump( FILE *f, int depth );
 #endif
 
 	enum {

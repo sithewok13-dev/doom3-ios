@@ -26,6 +26,7 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 
+#include <typeinfo>
 #include "sys/platform.h"
 #include "idlib/containers/HashTable.h"
 #include "idlib/LangDict.h"
@@ -853,6 +854,16 @@ static bool IOS_TextIs( idWinStr &text, const char *label ) {
 }
 
 bool idWindow::IOS_FindLabel( const char *label, float *x, float *y ) {
+	idRectangle r;
+	if ( !IOS_FindLabelRect( label, &r ) ) {
+		return false;
+	}
+	*x = r.x + r.w * 0.5f;
+	*y = r.y + r.h * 0.5f;
+	return true;
+}
+
+bool idWindow::IOS_FindLabelRect( const char *label, idRectangle *r ) {
 	if ( !visible ) {
 		return false;
 	}
@@ -860,16 +871,14 @@ bool idWindow::IOS_FindLabel( const char *label, float *x, float *y ) {
 		drawWin_t &d = drawWindows[i];
 		if ( d.win ) {
 			if ( d.win->visible && IOS_TextIs( d.win->text, label ) ) {
-				*x = d.win->drawRect.x + d.win->drawRect.w * 0.5f;
-				*y = d.win->drawRect.y + d.win->drawRect.h * 0.5f;
+				*r = d.win->drawRect;
 				return true;
 			}
-			if ( d.win->IOS_FindLabel( label, x, y ) ) {
+			if ( d.win->IOS_FindLabelRect( label, r ) ) {
 				return true;
 			}
 		} else if ( d.simp && d.simp->visible && IOS_TextIs( d.simp->text, label ) ) {
-			*x = d.simp->drawRect.x + d.simp->drawRect.w * 0.5f;
-			*y = d.simp->drawRect.y + d.simp->drawRect.h * 0.5f;
+			*r = d.simp->drawRect;
 			return true;
 		}
 	}
@@ -1489,6 +1498,125 @@ void idWindow::CalcRects(float x, float y) {
 idWindow::Redraw
 ================
 */
+#ifdef D3_IOS
+/*
+================
+iOS: the main menu across the whole screen
+
+The main menu is made for 4:3; on the phone's wider screen the game draws it
+in the middle, black either side. With the app's CLASSIC menu style
+(IOS_SetWideMenu) its plain windows -- ones that show no words and can't be
+touched: its backgrounds, its frame, the plate along the bottom -- go
+across the whole screen instead: as wide as the screen if they're as wide
+as the menu, else 4:3 against the screen's edge they touch. Everything else
+(its words, its buttons, the planet) stays 4:3 in the middle, where the
+mouse (a finger) finds it.
+================
+*/
+static idUserInterface *iosWideMenu = NULL;
+static bool IOS_TextIs( idWinStr &text, const char *label );	// (below)
+
+void IOS_SetWideMenu( idUserInterface *gui ) {
+	iosWideMenu = gui;
+}
+
+bool IOS_IsWideMenu( idUserInterface *gui ) {
+	return gui != NULL && gui == iosWideMenu;
+}
+
+int IOS_WideMode( const idRectangle &r, bool plain ) {
+	if ( !plain ) {
+		return idDeviceContext::IOS_WIDE_43;
+	}
+	if ( r.w >= VIRTUAL_WIDTH * 0.92f ) {
+		return idDeviceContext::IOS_WIDE_STRETCH;
+	}
+	if ( r.x <= 8.0f ) {
+		return idDeviceContext::IOS_WIDE_LEFT;
+	}
+	if ( r.x + r.w >= VIRTUAL_WIDTH - 8.0f ) {
+		return idDeviceContext::IOS_WIDE_RIGHT;
+	}
+	return idDeviceContext::IOS_WIDE_43;
+}
+
+/*
+================
+idWindow::IOS_ShowLabel, IOS_Relabel
+
+The windows showing label hidden or shown; a window's words changed (the
+menu's links the phone has no use for)
+================
+*/
+void idWindow::IOS_ShowLabel( const char *label, bool show ) {
+	for ( int i = 0; i < drawWindows.Num(); i++ ) {
+		drawWin_t &d = drawWindows[i];
+		if ( d.win ) {
+			if ( IOS_TextIs( d.win->text, label ) ) {
+				d.win->visible = show;
+			}
+			d.win->IOS_ShowLabel( label, show );
+		} else if ( d.simp && IOS_TextIs( d.simp->text, label ) ) {
+			d.simp->visible = show;
+		}
+	}
+}
+
+bool idWindow::IOS_Relabel( const char *from, const char *to ) {
+	for ( int i = 0; i < drawWindows.Num(); i++ ) {
+		drawWin_t &d = drawWindows[i];
+		if ( d.win ) {
+			if ( IOS_TextIs( d.win->text, from ) ) {
+				d.win->text = to;
+				return true;
+			}
+			if ( d.win->IOS_Relabel( from, to ) ) {
+				return true;
+			}
+		} else if ( d.simp && IOS_TextIs( d.simp->text, from ) ) {
+			d.simp->text = to;
+			return true;
+		}
+	}
+	return false;
+}
+
+/*
+================
+idWindow::IOS_Dump
+
+Every window of this one, as last drawn (its place in the 640 x 480), to f:
+what the menu's layout across the screen is worked out from
+================
+*/
+void idWindow::IOS_Dump( FILE *f, int depth ) {
+	const char *txt = text.c_str();
+	if ( txt[0] == '#' ) {
+		txt = common->GetLanguageDict()->GetString( txt );
+	}
+	fprintf( f, "%*s%s \"%s\" %s drawRect %.0f %.0f %.0f %.0f rect %.0f %.0f %.0f %.0f flags %x bg \"%s\" text \"%s\"%s%s\n",
+		depth * 2, "", typeid( *this ).name(), name.c_str(), visible ? "visible" : "hidden",
+		drawRect.x, drawRect.y, drawRect.w, drawRect.h, rect.x(), rect.y(), rect.w(), rect.h(), flags,
+		backGroundName.c_str(), txt, scripts[ON_ACTION] ? " onAction" : "", scripts[ON_MOUSEENTER] ? " onMouseEnter" : "" );
+	for ( int i = 0; i < drawWindows.Num(); i++ ) {
+		drawWin_t &d = drawWindows[i];
+		if ( d.win ) {
+			d.win->IOS_Dump( f, depth + 1 );
+		} else if ( d.simp ) {
+			const char *st = d.simp->text.c_str();
+			if ( st[0] == '#' ) {
+				st = common->GetLanguageDict()->GetString( st );
+			}
+			fprintf( f, "%*ssimple \"%s\" %s drawRect %.0f %.0f %.0f %.0f rect %.0f %.0f %.0f %.0f bg \"%s\" text \"%s\"\n",
+				( depth + 1 ) * 2, "", d.simp->name.c_str(), d.simp->visible ? "visible" : "hidden",
+				d.simp->drawRect.x, d.simp->drawRect.y, d.simp->drawRect.w, d.simp->drawRect.h,
+				d.simp->rect.x(), d.simp->rect.y(), d.simp->rect.w(), d.simp->rect.h(),
+				d.simp->backGroundName.c_str(), st );
+		}
+	}
+}
+#endif
+
 void idWindow::Redraw(float x, float y) {
 	idStr str;
 
@@ -1517,6 +1645,9 @@ void idWindow::Redraw(float x, float y) {
 			fixupFor43 = true;
 			dc->SetMenuScaleFix(true);
 		}
+#ifdef D3_IOS
+		dc->iosWide = fixupFor43 && IOS_IsWideMenu( gui );
+#endif
 	}
 
 	if ( flags & WIN_SHOWTIME ) {
@@ -1533,6 +1664,9 @@ void idWindow::Redraw(float x, float y) {
 	if (!visible) {
 		if (fixupFor43) { // DG: gotta reset that before returning this function
 			dc->SetMenuScaleFix(false);
+#ifdef D3_IOS
+			dc->iosWide = false;
+#endif
 		}
 		return;
 	}
@@ -1570,6 +1704,17 @@ void idWindow::Redraw(float x, float y) {
 	textRect.Offset(x, y);
 	actualX = drawRect.x;
 	actualY = drawRect.y;
+
+#ifdef D3_IOS
+	if ( dc->iosWide ) {
+		// across the whole screen: what this window shows decides how (only
+		// the ones that can't be touched or read move off the 4:3, so a
+		// finger finds every button where it's drawn)
+		bool plain = typeid( *this ) == typeid( idWindow ) && text.c_str()[0] == '\0'
+			&& !scripts[ON_ACTION] && !scripts[ON_ACTIONRELEASE] && !scripts[ON_MOUSEENTER];
+		dc->IOS_SetMenuTransform( IOS_WideMode( drawRect, plain ) );
+	}
+#endif
 
 	idVec3	oldOrg;
 	idMat3	oldTrans;
@@ -1655,6 +1800,9 @@ void idWindow::Redraw(float x, float y) {
 
 	if (fixupFor43) { // DG: gotta reset that before returning this function
 		dc->SetMenuScaleFix(false);
+#ifdef D3_IOS
+		dc->iosWide = false;
+#endif
 	}
 
 	drawRect.Offset(-x, -y);

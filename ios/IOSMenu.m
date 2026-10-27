@@ -76,6 +76,11 @@ static UIColor* IOSMenu_SteelText(CGFloat a) { return [UIColor colorWithRed:0.84
 static UIColor* IOSMenu_Orange(CGFloat a) { return [UIColor colorWithRed:1.0 green:0.55 blue:0.2 alpha:a]; }
 static UIColor* IOSMenu_Red(CGFloat a) { return [UIColor colorWithRed:0.62 green:0.1 blue:0.06 alpha:a]; }
 
+int IOS_MenuStyle(void)
+{
+	return IOSMenu_Style();
+}
+
 int IOS_PlayIntro(void)
 {
 	NSUserDefaults* d = [NSUserDefaults standardUserDefaults];
@@ -323,6 +328,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	int					bInGame;
 	int					gameKind;
 	UIButton*			backToMenu;		// over DOOM 3's own menu: back to this one
+	UIButton*			styleButton;	// over DOOM 3's MENU STYLE, across the screen
 	int					style;			// IOSMENU_STYLE_CLASSIC or _MODERN
 	IOSMenuGrid*		sideLeft;		// classic: the sides of DOOM 3's menu
 	IOSMenuGrid*		sideRight;
@@ -515,7 +521,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 
 - (void)refresh
 {
-	style = IOSMenu_Style() == IOSMENU_STYLE_MODERN ? IOSMENU_STYLE_MODERN : IOSMENU_STYLE_CLASSIC;
+	style = IOSMENU_STYLE_MODERN;	// (CLASSIC is DOOM 3's own menu, across the screen)
 	BOOL bClassic = style == IOSMENU_STYLE_CLASSIC;
 	// classic: DOOM 3's menu showing through; modern: the app's own
 	self.backgroundColor = bClassic ? UIColor.clearColor : UIColor.blackColor;
@@ -701,7 +707,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 		}];
 		[self addChoice:@"MENU STYLE" options:@[ @"CLASSIC", @"MODERN", @"ORIGINAL" ] picked:IOSMenu_Style() change:^(int st) {
 			IOSMenu_SetStyle(st);
-			if (st == IOSMENU_STYLE_ORIGINAL) return;	// (DOOM 3's own: frame hides this one)
+			if (st != IOSMENU_STYLE_MODERN) return;	// (DOOM 3's own: frame hides this one)
 			[weak refresh];
 			[weak showPage:PAGE_SETTINGS];
 		}];
@@ -823,17 +829,50 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 
 - (void)frame:(int)bOverMenus
 {
-	int bClassic = IOSMenu_Style() == IOSMENU_STYLE_ORIGINAL;	// (DOOM 3's own menu, for good)
+	int st = IOSMenu_Style();
 	int bMain = bOverMenus && IOS_MenuIsMain();
 	if (!bOverMenus) self.classicNow = NO;	// (left the menus: this one next time)
-	int bShow = bMain && !bClassic && !self.classicNow;
+	int bShow = bMain && st == IOSMENU_STYLE_MODERN && !self.classicNow;
 	if (bShow && self.hidden) [self refresh];
 	if (bShow && (IOS_MenuInGame() != bInGame || IOS_MenuGameKind() != gameKind)) [self refresh];
-	if (bShow && style != (IOSMenu_Style() == IOSMENU_STYLE_MODERN ? IOSMENU_STYLE_MODERN : IOSMENU_STYLE_CLASSIC)) [self refresh];
 	self.hidden = !bShow;
-	// over DOOM 3's own main menu: back to this one (for good, if it was
-	// switched off)
-	backToMenu.hidden = !(bMain && !bShow);
+	// over DOOM 3's own main menu as it is: back to the app's (for good, if
+	// it was picked)
+	backToMenu.hidden = !(bMain && !bShow && st != IOSMENU_STYLE_CLASSIC);
+	// CLASSIC: over its MENU STYLE (UPDATES, once), the styles to pick from
+	float x, y, w, h;
+	styleButton.hidden = !(bMain && st == IOSMENU_STYLE_CLASSIC && IOS_MenuLabelRect("MENU STYLE", &x, &y, &w, &h));
+	if (!styleButton.hidden) {
+		// (the 640 x 480 of buttons: 4:3, as tall as the screen, in the middle)
+		CGSize sz = self.superview.bounds.size;
+		CGFloat w43 = fmin(sz.width, sz.height * 4.0 / 3.0), h43 = w43 * 0.75;
+		CGFloat x43 = (sz.width - w43) * 0.5, y43 = (sz.height - h43) * 0.5;
+		styleButton.frame = CGRectMake(x43 + x * w43 / 640.0, y43 + y * h43 / 480.0, w * w43 / 640.0, h * h43 / 480.0);
+	}
+}
+
+- (void)pickStyle
+{
+	UIAlertController* a = [UIAlertController alertControllerWithTitle:@"MENU STYLE" message:nil
+															preferredStyle:UIAlertControllerStyleActionSheet];
+	static NSString* const aName[] = { @"Classic (DOOM 3's, full screen)", @"Modern", @"Original (DOOM 3's, as it was)" };
+	for (int i = 0; i <= IOSMENU_STYLE_ORIGINAL; i++) {
+		[a addAction:[UIAlertAction actionWithTitle:aName[i] style:UIAlertActionStyleDefault handler:^(UIAlertAction* act) {
+			IOSMenu_SetStyle(i);
+		}]];
+	}
+	[a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+	a.popoverPresentationController.sourceView = styleButton;
+	a.popoverPresentationController.sourceRect = styleButton.bounds;
+	UIViewController* vc = self.window.rootViewController ?: styleButton.window.rootViewController;
+	while (vc.presentedViewController) vc = vc.presentedViewController;
+	[vc presentViewController:a animated:YES completion:nil];
+}
+
+- (void)setStyleButton:(UIButton*)b
+{
+	styleButton = b;
+	[b addTarget:self action:@selector(pickStyle) forControlEvents:UIControlEventTouchUpInside];
 }
 
 - (void)backTapped
@@ -854,6 +893,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 
 static IOSMenuView* iosMenu_pView = nil;
 static UIButton* iosMenu_pBack = nil;	// over DOOM 3's own menu: back to this one
+static UIButton* iosMenu_pStyle = nil;	// over its MENU STYLE
 
 // Once a frame (the touch controls': IOSTouch_Frame), under their overlay in
 // the game's view; bOverMenus: the menus are up
@@ -875,18 +915,27 @@ void IOSMenu_Frame(UIView* game, UIView* overlay, int bOverMenus)
 		back.hidden = YES;
 		[iosMenu_pView setBackButton:back];
 		iosMenu_pBack = back;
+		UIButton* pick = [UIButton buttonWithType:UIButtonTypeCustom];
+		pick.hidden = YES;
+		[iosMenu_pView setStyleButton:pick];
+		iosMenu_pStyle = pick;
 	}
 	UIButton* back = iosMenu_pBack;
+	UIButton* pick = iosMenu_pStyle;
 	if (iosMenu_pView.superview != game) {
 		[iosMenu_pView removeFromSuperview];
 		[back removeFromSuperview];
+		[pick removeFromSuperview];
 		iosMenu_pView.frame = game.bounds;
 		[game addSubview:iosMenu_pView];
 		[game addSubview:back];
+		[game addSubview:pick];
 	}
-	// (under the overlay, which lets the menus' touches through)
+	// (under the overlay, which lets the menus' touches through; the style
+	// button over it, to take its touch from DOOM 3's button under it)
 	[game insertSubview:iosMenu_pView belowSubview:overlay];
 	[game insertSubview:back belowSubview:overlay];
+	[game insertSubview:pick aboveSubview:overlay];
 	UIEdgeInsets in = game.safeAreaInsets;
 	back.center = CGPointMake(fmax(in.left, 8.0) + 8.0 + back.bounds.size.width * 0.5, fmax(in.top, 8.0) + 8.0 + back.bounds.size.height * 0.5);
 	[iosMenu_pView frame:bOverMenus];

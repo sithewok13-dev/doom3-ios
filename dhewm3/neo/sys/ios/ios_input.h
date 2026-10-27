@@ -41,5 +41,7 @@ void	IOS_ScrollGuiAt( idUserInterface *gui, float x, float y, float lines );
 void *	IOS_GuiTextField( idUserInterface *gui );
 bool	IOS_GuiListShown( idUserInterface *gui, const char *listName );
 bool	IOS_GuiFindLabel( idUserInterface *gui, const char *label, float *x, float *y );
+bool	IOS_GuiLabelRect( idUserInterface *gui, const char *label, float *x, float *y, float *w, float *h );
+void	IOS_WideMenuFrame( idUserInterface *gui, bool wide );
 
 #endif /* !__IOS_INPUT_H__ */

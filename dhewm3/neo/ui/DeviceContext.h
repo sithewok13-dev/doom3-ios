@@ -107,6 +107,15 @@ public:
 
 	// DG: this is used for the "make sure menus are rendered as 4:3" hack
 	void				SetMenuScaleFix(bool enable);
+#ifdef D3_IOS
+	// iOS: the main menu across the whole screen (the app's CLASSIC menu
+	// style): while iosWide is on (its desktop drawing), each window drawn
+	// in its own way -- IOS_WIDE_43 as the 4:3 fix has it (in the middle),
+	// _STRETCH across the screen, _LEFT / _RIGHT 4:3 against that edge
+	enum { IOS_WIDE_43 = 0, IOS_WIDE_STRETCH, IOS_WIDE_LEFT, IOS_WIDE_RIGHT };
+	bool				iosWide;
+	void				IOS_SetMenuTransform( int mode );
+#endif
 	bool				IsMenuScaleFixActive() const {
 		// also using this for cstAdjustCoords, it basically means "you need to call AdjustCoords()
 		return fixOffsetForMenu.x != 0.0f || fixOffsetForMenu.y != 0.0f || cstAdjustCoords;

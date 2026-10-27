@@ -84,6 +84,13 @@ void	IOS_SetCVar( const char *name, const char *value );
 // the intro videos as the game starts (the app's setting)
 int		IOS_PlayIntro( void );
 
+// the menu style (the app's: 0 CLASSIC, DOOM 3's own main menu across the
+// whole screen; 1 MODERN, the app's own; 2 ORIGINAL, DOOM 3's as it is)
+int		IOS_MenuStyle( void );
+// where the main menu shows label, in the 640 x 480 (4:3 in the middle of the
+// screen); 1 if it does
+int		IOS_MenuLabelRect( const char *label, float *x, float *y, float *w, float *h );
+
 #ifdef __cplusplus
 }
 #endif
