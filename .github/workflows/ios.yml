@@ -72,10 +72,13 @@ jobs:
           set -e
           if [ $status -ne 0 ]; then
             # The first errors, as annotations, so they show on the run page.
-            grep -E ': (fatal )?error: ' build.log | sort -u | head -40 | while IFS= read -r line; do
+            grep -E '(^|: )(fatal )?error: ' build.log | sort -u | head -40 | while IFS= read -r line; do
               echo "::error::${line#$GITHUB_WORKSPACE/}"
             done
-            grep -E ': (fatal )?error: |^ld: |\*\* BUILD FAILED' -A3 build.log | head -150
+            echo "---- errors ----"
+            grep -n -i -E 'error[: ]|^ld: |undefined symbol' build.log | grep -v -E '^[0-9]+: *(CompileC|Ld|/)' | head -80
+            echo "---- end of log ----"
+            tail -60 build.log
             exit $status
           fi
           grep -E '\*\* BUILD SUCCEEDED' build.log
