@@ -7,8 +7,13 @@ set(IOS_VERSION "1.0" CACHE STRING "CFBundleShortVersionString")
 set(IOS_BUILD_NUMBER "1" CACHE STRING "CFBundleVersion (CI passes its run number)")
 set(IOS_EXECUTABLE "DOOM3")
 
-target_sources(${DHEWM3BINARY} PRIVATE "${IOS_APP_DIR}/IOSGameData.m")
-set_source_files_properties("${IOS_APP_DIR}/IOSGameData.m" PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+# the first-launch screen and the touch controls (Objective-C, ARC)
+set(IOS_APP_SOURCES
+	"${IOS_APP_DIR}/IOSGameData.m"
+	"${IOS_APP_DIR}/IOSTouch.m"
+)
+target_sources(${DHEWM3BINARY} PRIVATE ${IOS_APP_SOURCES})
+set_source_files_properties(${IOS_APP_SOURCES} PROPERTIES COMPILE_FLAGS "-fobjc-arc")
 
 configure_file("${IOS_APP_DIR}/Info.plist.in" "${CMAKE_CURRENT_BINARY_DIR}/Info.plist" @ONLY)
 set_target_properties(${DHEWM3BINARY} PROPERTIES

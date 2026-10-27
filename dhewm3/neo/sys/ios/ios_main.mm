@@ -50,6 +50,7 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 #include "framework/Game.h"
 #include "sys/sys_local.h"
 #include "sys/posix/posix_public.h"
+#include "sys/ios/ios_input.h"
 
 // the app around the engine (ios/IOSGameData.m)
 extern "C" void IOS_WaitForGameData( void );
@@ -196,6 +197,16 @@ int main( int argc, char *argv[] ) {
 	NSString *saved = [[NSUserDefaults standardUserDefaults] stringForKey:lastGameKey];
 	idStr lastGame = saved ? [saved UTF8String] : "";
 	idStrList args;
+	// the screen's own resolution, and the console (the keyboard in MENU's
+	// tray: for cheats); before anything from the command line
+	static const char * const iosArgs[] = {
+		"+set", "r_fullscreen", "1",
+		"+set", "r_fullscreenDesktop", "1",
+		"+set", "com_allowConsole", "1",
+	};
+	for ( int i = 0; i < (int)( sizeof( iosArgs ) / sizeof( iosArgs[0] ) ); i++ ) {
+		args.Append( iosArgs[i] );
+	}
 	for ( int i = 1; i < argc; i++ ) {
 		args.Append( argv[i] );
 	}
@@ -213,6 +224,9 @@ int main( int argc, char *argv[] ) {
 	while ( 1 ) {
 		@autoreleasepool {
 			common->Frame();
+
+			// the touch controls: shown in play, hidden where a finger is the mouse
+			IOS_TouchFrame();
 
 			// remember a game switch (the Mods menu sets fs_game and restarts)
 			const char *game = cvarSystem->GetCVarString( "fs_game" );

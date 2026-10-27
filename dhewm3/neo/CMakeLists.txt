@@ -1279,6 +1279,7 @@ elseif(IOS)
 		sys/glimp.cpp
 		sys/ios/ios_main.mm
 		sys/ios/ios_angle.cpp
+		sys/ios/ios_input.cpp
 	)
 elseif(APPLE)
 	set(OSX_RESOURCE_FILES

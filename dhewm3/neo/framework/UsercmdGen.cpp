@@ -35,6 +35,10 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "framework/UsercmdGen.h"
 
+#ifdef D3_IOS
+#include "sys/ios/ios_input.h"
+#endif
+
 /*
 ================
 usercmd_t::ByteSwap
@@ -1055,6 +1059,11 @@ void idUsercmdGenLocal::MakeCurrent( void ) {
 
 		// get basic movement from mouse
 		MouseMove();
+
+#ifdef D3_IOS
+		// and from the touch controls
+		IOS_AddTouchToUsercmd( cmd, viewangles );
+#endif
 
 		// check to make sure the angles haven't wrapped
 		if ( viewangles[PITCH] - oldAngles[PITCH] > 90 ) {

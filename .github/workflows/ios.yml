@@ -17,9 +17,11 @@ on:
       - '**.png'
   workflow_dispatch:
 
+# a newer push waits for the running build (rather than cancelling a long
+# ANGLE build); a build still waiting is replaced by the newest
 concurrency:
   group: ios-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   # Must match between ANGLE and the app: dyld refuses to load a framework

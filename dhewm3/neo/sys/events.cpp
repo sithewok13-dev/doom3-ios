@@ -1790,6 +1790,11 @@ static void handleMouseGrab() {
 		flags |= GRAB_GRABMOUSE;
 	if ( relativeMouse )
 		flags |= GRAB_RELATIVEMOUSE;
+#ifdef D3_IOS
+	// iOS: the console needs the on-screen keyboard, which comes with SDL's text input
+	if ( console->Active() )
+		enableTextInput = true;
+#endif
 	if ( enableTextInput )
 		flags |= GRAB_ENABLETEXTINPUT;
 

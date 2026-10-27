@@ -37,6 +37,10 @@ If you have questions concerning this license or the applicable additional terms
 #include "ai/AI.h"
 #include "WorldSpawn.h"
 #include "Player.h"
+
+#ifdef D3_IOS
+#include "sys/ios/ios_game.h"
+#endif
 #include "Camera.h"
 #include "Fx.h"
 #include "Misc.h"
@@ -7592,6 +7596,13 @@ void idPlayer::Think( void ) {
 
 	// determine if portal sky is in pvs
 	gameLocal.portalSkyActive = gameLocal.pvs.CheckAreasForPortalSky( gameLocal.GetPlayerPVS(), GetPhysics()->GetOrigin() );
+#endif
+
+#ifdef D3_IOS
+	// for the touch controls: hidden while the PDA is open and in cinematics
+	if ( entityNumber == gameLocal.localClientNum ) {
+		IOS_GameReport( objectiveSystemOpen, gameLocal.inCinematic );
+	}
 #endif
 }
 
