@@ -29,9 +29,11 @@
  *   it stop flying), and MENU's tray has LEVEL: a list of the game's levels.
  * - MENU: a tap opens the game's menu; held IOSTOUCH_MENU_HOLD it opens its
  *   tray: GYRO (a tap switches it off or back on; held, its MODE and SENS),
- *   RUN (the run marker's double chevron; lit, Always Run), FPS, CHEAT
- *   (CHEAT shown or not: shown, cheat mode goes on), LEVEL (in cheat mode)
- *   and the keyboard (the console).
+ *   RUN (the run marker's double chevron; lit, Always Run), LOOK (the look
+ *   speed: a slider, and DEFAULT), FPS, CHEAT (CHEAT shown or not: shown,
+ *   cheat mode goes on; held, the laugh it makes going on, picked from
+ *   DOOM 3's), LEVEL (in cheat mode) and the keyboard (the console). Cheat
+ *   mode is off as the app starts, CHEAT shown greyed if it's switched on.
  * - Gyro aiming, OFF unless switched on: TOUCH aims while a thumb is down on
  *   the stick, the look area or a button that looks; ALWAYS aims always.
  * - Over a cinematic or the story intro: a tap anywhere skips it.
@@ -74,10 +76,12 @@ int IOSMenu_Showing(void);
 
 // Look speed: degrees the view turns per point of finger travel. In the
 // ratio of the Jedi Knight port's look scale (1.6 across, 1.3 up and down);
-// raised after trying it on the phone (a fifth, then two fifths more); the
-// app's menu's LOOK SPEED scales it.
-#define IOSTOUCH_LOOK_DEG_X 0.42f
-#define IOSTOUCH_LOOK_DEG_Y 0.34f
+// raised after trying it on the phone (a fifth, two fifths, then a sixth
+// more); LOOK (the tray's) and the app's menu's LOOK SPEED scale it.
+#define IOSTOUCH_LOOK_DEG_X 0.49f
+#define IOSTOUCH_LOOK_DEG_Y 0.40f
+#define IOSTOUCH_LOOKSCALE_MIN 0.25f
+#define IOSTOUCH_LOOKSCALE_MAX 3.0f
 // The move stick: radius in points (and its knob's), dead zone as a fraction
 // of it; it appears wherever the left thumb lands in the left
 // IOSTOUCH_STICK_ZONE of the screen, and only while that thumb is down
@@ -171,13 +175,16 @@ int IOSMenu_Showing(void);
 // CHEAT shown (MENU's tray: off unless switched on), under the Jedi Knight
 // port's key
 #define IOSTOUCH_CHEAT_DEFAULTS_KEY @"iosTouchShowCheat"
+// The laugh cheat mode makes going on (a DOOM 3 sound shader's name; none:
+// Betruger's, found by its name)
+#define IOSTOUCH_CHEATSOUND_DEFAULTS_KEY @"iosTouchCheatLaugh"
 
 enum {
 	// the buttons in play
 	BTN_FIRE = 0, BTN_JUMP, BTN_CROUCH, BTN_RELOAD, BTN_LIGHT,
 	BTN_NEXTWPN, BTN_PDA, BTN_QSAVE, BTN_QLOAD, BTN_MENU, BTN_CAMERA, BTN_CHEAT,
 	// MENU's tray, and GYRO's options in a second row under it
-	BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_FPS, BTN_TRAY_KEYS, BTN_TRAY_CHEAT, BTN_TRAY_LEVEL,
+	BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_LOOK, BTN_TRAY_FPS, BTN_TRAY_KEYS, BTN_TRAY_CHEAT, BTN_TRAY_LEVEL,
 	BTN_OPT_MODE, BTN_OPT_SENS,
 	NUM_BUTTONS
 };
@@ -217,6 +224,7 @@ static const iosTouchButton_t iosTouch_aButtons[NUM_BUTTONS] = {
 	{ "",			KIND_CHEAT,		IOSTOUCH_TOP_R,			0 },	// (the pentagram)
 	{ "GYRO",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "RUN",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
+	{ "LOOK",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (the look speed)
 	{ "FPS",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "",			KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (the keyboard symbol)
 	{ "CHEAT",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (CHEAT shown or not)
@@ -733,11 +741,18 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	CAShapeLayer*		runTrayChevrons;	// the tray's RUN: the run marker's double chevron
 	UIView*				flash;			// the camera's flash
 	UILabel*			toast;			// "Saved to Photos"
-	// the cheat's level list
+	// the cheat's lists: its levels (LEVEL), or the laughs to pick its from
 	UIView*				levelPanel;
 	UITableView*		levelTable;
+	int					bListLaughs;
 	iosTouchLevel_t		aLevels[IOSTOUCH_MAX_LEVELS];
 	int					numLevels;
+	char				aLaughs[IOSTOUCH_MAX_SOUNDS][64];
+	int					numLaughs;
+	// LOOK's panel: the look speed
+	UIView*				lookPanel;
+	UISlider*			lookSlider;
+	UILabel*			lookValue;
 	// the weapon wheel: over everything, hidden until opened
 	UIView*				wheelView;		// the game dimmed under it
 	CAShapeLayer*		wheelDisc;
@@ -793,7 +808,7 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 		aButtonViews[i] = l;
 
 		if (b->kind == KIND_HOLDTAP || b->kind == KIND_MENU || b->kind == KIND_WHEEL || b->kind == KIND_CAMERA
-			|| b->kind == KIND_CHEAT || i == BTN_TRAY_GYRO || i == BTN_JUMP) {
+			|| b->kind == KIND_CHEAT || i == BTN_TRAY_GYRO || i == BTN_TRAY_CHEAT || i == BTN_JUMP) {
 			CAShapeLayer* ring = [CAShapeLayer layer];
 			ring.frame = CGRectMake(0, 0, 2 * b->radius, 2 * b->radius);
 			ring.path = [UIBezierPath bezierPathWithArcCenter:CGPointMake(b->radius, b->radius) radius:b->radius - 2.0
@@ -861,8 +876,8 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 		runTrayChevrons.lineJoin = kCALineJoinRound;
 		[aButtonViews[BTN_TRAY_RUN].layer addSublayer:runTrayChevrons];
 	}
+	// (cheat mode off as the app starts, whether CHEAT's shown or not)
 	iosTouch_bShowCheat = [[NSUserDefaults standardUserDefaults] boolForKey:IOSTOUCH_CHEAT_DEFAULTS_KEY];
-	if (iosTouch_bShowCheat) IOS_SetCheat(1);	// (shown: cheat mode on, as the game starts)
 
 	// the stick, as the Jedi Knight port draws it: the ring, the line up to
 	// the run marker, the knob, and the marker with its double chevron on top
@@ -920,6 +935,7 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	resumeButton = [self roundButton:@"xmark" action:@selector(resumeTapped)];
 	[self makeWheel];
 	[self makeLevelPanel];
+	[self makeLookPanel];
 
 	flash = [[UIView alloc] initWithFrame:self.bounds];
 	flash.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -940,7 +956,7 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 
 	iosTouch_bAlwaysRun = [[NSUserDefaults standardUserDefaults] boolForKey:IOSTOUCH_ALWAYSRUN_DEFAULTS_KEY];
 	if ([[NSUserDefaults standardUserDefaults] objectForKey:IOSTOUCH_LOOKSCALE_DEFAULTS_KEY]) {
-		iosTouch_lookScale = fmaxf(0.25f, [[NSUserDefaults standardUserDefaults] floatForKey:IOSTOUCH_LOOKSCALE_DEFAULTS_KEY]);
+		iosTouch_lookScale = fmaxf(IOSTOUCH_LOOKSCALE_MIN, [[NSUserDefaults standardUserDefaults] floatForKey:IOSTOUCH_LOOKSCALE_DEFAULTS_KEY]);
 	}
 	iosTouch_GyroSetup();
 	[self refreshLabels];
@@ -1127,7 +1143,7 @@ static int iosTouch_TrayHas(int b)
 
 - (void)layoutTray
 {
-	static const int aTray[] = { BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_FPS, BTN_TRAY_CHEAT, BTN_TRAY_LEVEL, BTN_TRAY_KEYS };
+	static const int aTray[] = { BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_LOOK, BTN_TRAY_FPS, BTN_TRAY_CHEAT, BTN_TRAY_LEVEL, BTN_TRAY_KEYS };
 	int n = 0;
 	for (int k = 0; k < IOSTOUCH_COUNT(aTray); k++) n += iosTouch_TrayHas(aTray[k]);
 	CGFloat trayY = aCentres[BTN_MENU].y + IOSTOUCH_TRAY_STEP;
@@ -1169,6 +1185,7 @@ static int iosTouch_TrayHas(int b)
 	aButtonViews[BTN_TRAY_CHEAT].text = iosTouch_bShowCheat ? @"CHEAT\nON" : @"CHEAT\nOFF";
 	aButtonViews[BTN_TRAY_CHEAT].textColor = iosTouch_bShowCheat ? IOSTOUCH_CHEAT_RED(1.0) : [UIColor colorWithWhite:1.0 alpha:0.85];
 	aButtonViews[BTN_TRAY_FPS].text = IOS_CVarInteger("com_showFPS") ? @"FPS\nON" : @"FPS\nOFF";
+	aButtonViews[BTN_TRAY_LOOK].text = [NSString stringWithFormat:@"LOOK\n%.1fx", iosTouch_lookScale];
 	aButtonViews[BTN_OPT_MODE].text = iosTouch_gyroLastMode == IOSTOUCH_GYRO_ALWAYS ? @"MODE\nALWAYS" : @"MODE\nTOUCH";
 	aButtonViews[BTN_OPT_SENS].text = [NSString stringWithFormat:@"SENS\n%.1fx", iosTouch_aGyroSens[iosTouch_gyroSens]];
 }
@@ -1333,9 +1350,11 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		}
 		return;
 	}
-	if (!levelPanel.hidden) {
-		// (the list takes its own touches): one off it closes it
+	if (!levelPanel.hidden || !lookPanel.hidden) {
+		// (the list and LOOK's panel take their own touches): one off them
+		// closes them
 		[self closeLevels];
+		[self closeLook];
 		return;
 	}
 	if (iosTouch_mode == IOSTOUCH_MODE_PDA) {
@@ -1589,7 +1608,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		return;
 	}
 	if (iosTouch_aButtons[b].kind == KIND_TRAY) {
-		if (b == BTN_TRAY_GYRO && s->bDone) return;	// (held: its options opened)
+		if ((b == BTN_TRAY_GYRO || b == BTN_TRAY_CHEAT) && s->bDone) return;	// (held: its options, or the laughs, opened)
 		if (s->bInside) [self useTrayButton:b];
 	}
 }
@@ -1610,9 +1629,17 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		iosTouch_bShowCheat = !iosTouch_bShowCheat;
 		[[NSUserDefaults standardUserDefaults] setBool:iosTouch_bShowCheat forKey:IOSTOUCH_CHEAT_DEFAULTS_KEY];
 		IOS_SetCheat(iosTouch_bShowCheat);
-		if (iosTouch_bShowCheat) [self cheatSwitchedOn];
+		if (iosTouch_bShowCheat) {
+			[self cheatSwitchedOn];
+			if (![[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY])
+				[self showToast:@"Hold CHEAT here to pick the laugh"];
+		}
 		[self showButtons];
 		break;
+	case BTN_TRAY_LOOK:
+		[self setTrayOpen:0];
+		[self openLook];
+		return;
 	case BTN_TRAY_FPS:
 		IOS_Command(IOS_CVarInteger("com_showFPS") ? "com_showFPS 0" : "com_showFPS 1");
 		[self setTrayOpen:0];
@@ -1655,7 +1682,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		if (!s->touch || s->role != ROLE_BUTTON || s->bDone) continue;
 		int b = s->button;
 		double hold = (iosTouch_aButtons[b].kind == KIND_HOLDTAP) ? IOSTOUCH_QUICKSAVE_HOLD
-					: (b == BTN_MENU || b == BTN_TRAY_GYRO) ? IOSTOUCH_MENU_HOLD
+					: (b == BTN_MENU || b == BTN_TRAY_GYRO || b == BTN_TRAY_CHEAT) ? IOSTOUCH_MENU_HOLD
 					: (b == BTN_NEXTWPN) ? IOSTOUCH_WHEEL_HOLD
 					: (b == BTN_CAMERA) ? IOSTOUCH_SELFIE_HOLD
 					: (b == BTN_CHEAT) ? IOSTOUCH_CHEAT_HOLD
@@ -1685,6 +1712,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			else [thump impactOccurred];
 			break;
 		case BTN_JUMP: IOS_ToggleFly(); [thump impactOccurred]; break;	// in cheat mode: FLY
+		case BTN_TRAY_CHEAT: [self setTrayOpen:0]; [self openLaughs]; break;	// held: the laughs
 		}
 	}
 	[CATransaction begin];
@@ -1711,6 +1739,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 {
 	[self closeWheelSelecting:-1];
 	[self closeLevels];
+	[self closeLook];
 	iosTouch_guiState = IOSTOUCH_GUI_NONE;
 	iosTouch_bGuiDown = 0;
 	memset(iosTouch_aSlots, 0, sizeof(iosTouch_aSlots));
@@ -2217,15 +2246,17 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 - (void)cheatSwitchedOn
 {
 	[thump impactOccurred];
-	IOS_PlayCheatSound();	// (Betruger's laugh)
+	// (Betruger's laugh: the one picked, else his found by its name)
+	IOS_PlayCheatSound([[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY].UTF8String);
 }
 
 // CHEAT red while cheat mode is on; JUMP says FLY under it then (lit while
 // flying); the tray's LEVEL only then
 - (void)refreshCheatLooks
 {
-	cheatEmblem.strokeColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_RED(0.95).CGColor : [UIColor colorWithWhite:1.0 alpha:0.85].CGColor;
-	aButtonViews[BTN_CHEAT].layer.borderColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_RED(0.8).CGColor : [UIColor colorWithWhite:1.0 alpha:0.6].CGColor;
+	// (off: greyed)
+	cheatEmblem.strokeColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_RED(0.95).CGColor : [UIColor colorWithWhite:0.6 alpha:0.45].CGColor;
+	aButtonViews[BTN_CHEAT].layer.borderColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_RED(0.8).CGColor : [UIColor colorWithWhite:0.6 alpha:0.35].CGColor;
 	UILabel* jump = aButtonViews[BTN_JUMP];
 	if (iosTouch_bCheatOn) {
 		NSMutableAttributedString* t = [[NSMutableAttributedString alloc] initWithString:@"JUMP\n"
@@ -2278,6 +2309,97 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	[UIView animateWithDuration:0.4 delay:1.6 options:0 animations:^{ self->toast.alpha = 0.0; } completion:nil];
 }
 
+// ------------------------------------------------ LOOK: the look speed
+
+// A slider for the look speed (IOSTOUCH_LOOKSCALE_MIN to _MAX times), its
+// value, and DEFAULT (1x); the game holds still meanwhile
+- (void)makeLookPanel
+{
+	lookPanel = [[UIView alloc] init];
+	lookPanel.backgroundColor = [UIColor colorWithWhite:0.06 alpha:0.94];
+	lookPanel.layer.cornerRadius = 16.0;
+	lookPanel.layer.borderWidth = 1.5;
+	lookPanel.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.35].CGColor;
+	lookPanel.hidden = YES;
+	UILabel* title = [[UILabel alloc] initWithFrame:CGRectMake(16, 10, 200, 24)];
+	title.text = @"LOOK SPEED";
+	title.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
+	title.textColor = UIColor.whiteColor;
+	[lookPanel addSubview:title];
+	lookValue = [[UILabel alloc] init];
+	lookValue.font = [UIFont monospacedDigitSystemFontOfSize:15 weight:UIFontWeightHeavy];
+	lookValue.textColor = IOSTOUCH_BLUE(1.0);
+	lookValue.textAlignment = NSTextAlignmentRight;
+	[lookPanel addSubview:lookValue];
+	lookSlider = [[UISlider alloc] init];
+	lookSlider.minimumValue = IOSTOUCH_LOOKSCALE_MIN;
+	lookSlider.maximumValue = IOSTOUCH_LOOKSCALE_MAX;
+	lookSlider.minimumTrackTintColor = IOSTOUCH_BLUE(1.0);
+	[lookSlider addTarget:self action:@selector(lookSlid) forControlEvents:UIControlEventValueChanged];
+	[lookPanel addSubview:lookSlider];
+	UIButton* def = [UIButton buttonWithType:UIButtonTypeSystem];
+	[def setTitle:@"DEFAULT" forState:UIControlStateNormal];
+	def.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightHeavy];
+	def.tintColor = UIColor.whiteColor;
+	def.layer.cornerRadius = 10.0;
+	def.layer.borderWidth = 1.0;
+	def.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.5].CGColor;
+	def.tag = 1;
+	[def addTarget:self action:@selector(lookDefault) forControlEvents:UIControlEventTouchUpInside];
+	[lookPanel addSubview:def];
+	UIButton* close = [UIButton buttonWithType:UIButtonTypeSystem];
+	[close setImage:[UIImage systemImageNamed:@"xmark"] forState:UIControlStateNormal];
+	close.tintColor = UIColor.whiteColor;
+	close.tag = 2;
+	[close addTarget:self action:@selector(closeLook) forControlEvents:UIControlEventTouchUpInside];
+	[lookPanel addSubview:close];
+	[self addSubview:lookPanel];
+}
+
+- (void)openLook
+{
+	[self releaseAll];
+	CGRect b = self.bounds;
+	CGFloat w = fmin(400.0, b.size.width - 40.0), h = 150.0;
+	lookPanel.frame = CGRectMake((b.size.width - w) * 0.5, (b.size.height - h) * 0.5, w, h);
+	[lookPanel viewWithTag:2].frame = CGRectMake(w - 44, 4, 40, 36);
+	lookValue.frame = CGRectMake(w - 44 - 70, 10, 64, 24);
+	lookSlider.frame = CGRectMake(16, 50, w - 32, 34);
+	[lookPanel viewWithTag:1].frame = CGRectMake((w - 120) * 0.5, h - 52, 120, 38);
+	lookSlider.value = iosTouch_lookScale;
+	[self refreshLook];
+	lookPanel.hidden = NO;
+	[self bringSubviewToFront:lookPanel];
+	IOS_HoldGame(1);
+}
+
+- (void)closeLook
+{
+	if (lookPanel.hidden) return;
+	lookPanel.hidden = YES;
+	IOS_HoldGame(0);
+}
+
+- (void)refreshLook
+{
+	lookValue.text = [NSString stringWithFormat:@"%.2fx", iosTouch_lookScale];
+	[self refreshLabels];
+}
+
+- (void)lookSlid
+{
+	IOSTouch_SetLookScale(roundf(lookSlider.value * 20.0f) / 20.0f);	// (in twentieths)
+	[self refreshLook];
+}
+
+- (void)lookDefault
+{
+	IOSTouch_SetLookScale(1.0f);
+	[lookSlider setValue:1.0f animated:YES];
+	[tick selectionChanged];
+	[self refreshLook];
+}
+
 // ------------------------------------------------ the cheat's levels
 
 - (void)makeLevelPanel
@@ -2293,6 +2415,8 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	title.text = @"LEVEL";
 	title.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
 	title.textColor = IOSTOUCH_CHEAT_RED(1.0);
+	title.adjustsFontSizeToFitWidth = YES;
+	title.minimumScaleFactor = 0.6;
 	title.tag = 1;
 	[levelPanel addSubview:title];
 	UIButton* close = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -2319,7 +2443,26 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		return;
 	}
 	[self releaseAll];
+	bListLaughs = 0;
+	((UILabel*)[levelPanel viewWithTag:1]).text = @"LEVEL";
 	[self showList];
+}
+
+// DOOM 3's laughs, for cheat mode going on: each played as it's tapped, and
+// picked (ticked); the game holds still meanwhile, the laughs played over
+// the menus' sounds
+- (void)openLaughs
+{
+	numLaughs = IOS_GetLaughs(aLaughs, IOSTOUCH_MAX_SOUNDS);
+	if (numLaughs <= 0) {
+		[self showToast:@"No laughs found"];
+		return;
+	}
+	[self releaseAll];
+	bListLaughs = 1;
+	((UILabel*)[levelPanel viewWithTag:1]).text = @"CHEAT LAUGH: TAP TO HEAR AND PICK";
+	[self showList];
+	IOS_TrySounds(1);
 }
 
 - (void)showList
@@ -2330,6 +2473,7 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	CGFloat h = b.size.height - fmax(in.top, 8.0) - fmax(in.bottom, 8.0) - 16.0;
 	levelPanel.frame = CGRectMake((b.size.width - w) * 0.5, (b.size.height - h) * 0.5, w, h);
 	[levelPanel viewWithTag:2].frame = CGRectMake(w - 44, 4, 40, 36);
+	[levelPanel viewWithTag:1].frame = CGRectMake(16, 10, w - 64, 24);
 	levelTable.frame = CGRectMake(0, 44, w, h - 44);
 	[levelTable reloadData];
 	levelPanel.hidden = NO;
@@ -2341,12 +2485,13 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 {
 	if (levelPanel.hidden) return;
 	levelPanel.hidden = YES;
+	if (bListLaughs) IOS_TrySounds(0);
 	IOS_HoldGame(0);
 }
 
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section
 {
-	return numLevels;
+	return bListLaughs ? numLaughs : numLevels;
 }
 
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)indexPath
@@ -2360,15 +2505,33 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		cell.detailTextLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.5];
 		cell.detailTextLabel.font = [UIFont systemFontOfSize:11];
 	}
+	if (bListLaughs) {
+		NSString* name = [NSString stringWithUTF8String:aLaughs[indexPath.row]];
+		NSString* picked = [[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY];
+		cell.textLabel.text = [name stringByReplacingOccurrencesOfString:@"_" withString:@" "];
+		cell.detailTextLabel.text = nil;
+		cell.accessoryType = [name isEqualToString:picked] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+		cell.tintColor = IOSTOUCH_CHEAT_RED(1.0);
+		return cell;
+	}
 	const iosTouchLevel_t* l = &aLevels[indexPath.row];
 	cell.textLabel.text = [NSString stringWithFormat:@"%d. %s", (int)indexPath.row + 1, l->name];
 	cell.detailTextLabel.text = [NSString stringWithUTF8String:l->path];
+	cell.accessoryType = UITableViewCellAccessoryNone;
 	return cell;
 }
 
 - (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)indexPath
 {
 	[tableView deselectRowAtIndexPath:indexPath animated:NO];
+	if (bListLaughs) {
+		// heard, and picked
+		IOS_PlaySound(aLaughs[indexPath.row]);
+		[[NSUserDefaults standardUserDefaults] setObject:[NSString stringWithUTF8String:aLaughs[indexPath.row]]
+												  forKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY];
+		[tableView reloadData];
+		return;
+	}
 	IOS_GoToLevel(aLevels[indexPath.row].path);
 	[self closeLevels];
 }

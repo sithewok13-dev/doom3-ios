@@ -412,15 +412,59 @@ int IOS_GetLevels( iosTouchLevel_t *out, int max ) {
 
 /*
 ================
-IOS_PlayCheatSound
+IOS_GetLaughs
 
-Cheat mode going on: Betruger's laugh -- the other one of his than "betruger
-laugh 01" (as its list showed his sound shaders, underscores as spaces),
-which the player tried first and passed over. From the player's own DOOM 3
-files, found by its name (failing another, that one).
+The laughs cheat mode going on might make: DOOM 3's sound shaders with
+"laugh" in their names (their names not being known here), Betruger's first
 ================
 */
-void IOS_PlayCheatSound( void ) {
+int IOS_GetLaughs( char names[][64], int max ) {
+	int n = 0;
+	int num = declManager->GetNumDecls( DECL_SOUND );
+	for ( int pass = 0; pass < 2; pass++ ) {
+		for ( int i = 0; i < num && n < max; i++ ) {
+			const idDecl *decl = declManager->DeclByIndex( DECL_SOUND, i, false );
+			if ( !decl || idStr::FindText( decl->GetName(), "laugh", false ) < 0 ) {
+				continue;
+			}
+			bool his = idStr::FindText( decl->GetName(), "betruger", false ) >= 0;
+			if ( his == ( pass == 0 ) ) {
+				idStr::Copynz( names[n++], decl->GetName(), 64 );
+			}
+		}
+	}
+	return n;
+}
+
+void IOS_PlaySound( const char *name ) {
+	idSoundWorld *world = soundSystem->GetPlayingSoundWorld();
+	if ( world && name && name[0] ) {
+		world->PlayShaderDirectly( name );
+	}
+}
+
+void IOS_TrySounds( int on ) {
+	if ( on ) {
+		soundSystem->SetPlayingSoundWorld( sessLocal.menuSoundWorld );
+	} else if ( sessLocal.guiActive == NULL && sessLocal.mapSpawned && session->sw ) {
+		soundSystem->SetPlayingSoundWorld( session->sw );
+	}
+}
+
+/*
+================
+IOS_PlayCheatSound
+
+Cheat mode going on: Betruger's laugh, the one the player picked from the
+laughs' list (holding the tray's CHEAT); none picked yet, his other one than
+"betruger laugh 01" (underscores as spaces), found by its name
+================
+*/
+void IOS_PlayCheatSound( const char *picked ) {
+	if ( picked && picked[0] ) {
+		IOS_PlaySound( picked );
+		return;
+	}
 	static idStr found;
 	static bool looked;
 	if ( !looked ) {

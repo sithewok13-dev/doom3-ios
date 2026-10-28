@@ -327,6 +327,21 @@ int idSoundSample::LengthIn44kHzSamples( void ) const {
 
 /*
 ===================
+IOS_NoBuffer
+
+iOS: a sample OpenAL has no buffer for is played without one, from its
+data a piece at a time, as the long ones always are, rather than ending the
+game (it did, loading a level picked from the cheat's LEVEL list)
+===================
+*/
+#ifdef D3_IOS
+#define IOS_NoBuffer( msg )	do { common->Warning( "%s for %s", msg, name.c_str() ); openalBuffer = 0; } while ( 0 )
+#else
+#define IOS_NoBuffer( msg )	common->Error( msg )
+#endif
+
+/*
+===================
 idSoundSample::MakeDefault
 ===================
 */
@@ -358,7 +373,7 @@ void idSoundSample::MakeDefault( void ) {
 	alGetError();
 	alGenBuffers( 1, &openalBuffer );
 	if ( alGetError() != AL_NO_ERROR ) {
-		common->Error( "idSoundCache: error generating OpenAL hardware buffer" );
+		IOS_NoBuffer( "idSoundCache: error generating OpenAL hardware buffer" );
 	}
 
 	alGetError();
@@ -490,7 +505,7 @@ void idSoundSample::Load( void ) {
 		alGetError();
 		alGenBuffers( 1, &openalBuffer );
 		if ( alGetError() != AL_NO_ERROR )
-			common->Error( "idSoundCache: error generating OpenAL hardware buffer" );
+			IOS_NoBuffer( "idSoundCache: error generating OpenAL hardware buffer" );
 		if ( alIsBuffer( openalBuffer ) ) {
 			alGetError();
 			alBufferData( openalBuffer, objectInfo.nChannels==1?AL_FORMAT_MONO16:AL_FORMAT_STEREO16, nonCacheData, objectMemSize, objectInfo.nSamplesPerSec );
@@ -510,7 +525,7 @@ void idSoundSample::Load( void ) {
 				alGetError();
 				alGenBuffers( 1, &openalBuffer );
 				if ( alGetError() != AL_NO_ERROR )
-					common->Error( "idSoundCache: error generating OpenAL hardware buffer" );
+					IOS_NoBuffer( "idSoundCache: error generating OpenAL hardware buffer" );
 				if ( alIsBuffer( openalBuffer ) ) {
 					idSampleDecoder *decoder = idSampleDecoder::Alloc();
 					float *destData = (float *)soundCacheAllocator.Alloc( ( LengthIn44kHzSamples() + 1 ) * sizeof( float ) );

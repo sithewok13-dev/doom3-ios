@@ -7245,6 +7245,15 @@ void idPlayer::CalculateViewWeaponPos( idVec3 &origin, idMat3 &axis ) {
 idPlayer::OffsetThirdPersonView
 ===============
 */
+// iOS: the third person view (the camera's selfie) stops short of the
+// characters and bodies between it and the player too, not only the walls,
+// so none stands in front of the player in the photo
+#ifdef D3_IOS
+#define IOS_THIRDPERSON_MASK	( MASK_SOLID | CONTENTS_BODY | CONTENTS_CORPSE )
+#else
+#define IOS_THIRDPERSON_MASK	MASK_SOLID
+#endif
+
 void idPlayer::OffsetThirdPersonView( float angle, float range, float height, bool clip ) {
 	idVec3			view;
 	idVec3			focusAngles;
@@ -7284,14 +7293,14 @@ void idPlayer::OffsetThirdPersonView( float angle, float range, float height, bo
 		// trace a ray from the origin to the viewpoint to make sure the view isn't
 		// in a solid block.  Use an 8 by 8 block to prevent the view from near clipping anything
 		bounds = idBounds( idVec3( -4, -4, -4 ), idVec3( 4, 4, 4 ) );
-		gameLocal.clip.TraceBounds( trace, origin, view, bounds, MASK_SOLID, this );
+		gameLocal.clip.TraceBounds( trace, origin, view, bounds, IOS_THIRDPERSON_MASK, this );
 		if ( trace.fraction != 1.0f ) {
 			view = trace.endpos;
 			view.z += ( 1.0f - trace.fraction ) * 32.0f;
 
 			// try another trace to this position, because a tunnel may have the ceiling
 			// close enough that this is poking out
-			gameLocal.clip.TraceBounds( trace, origin, view, bounds, MASK_SOLID, this );
+			gameLocal.clip.TraceBounds( trace, origin, view, bounds, IOS_THIRDPERSON_MASK, this );
 			view = trace.endpos;
 		}
 	}

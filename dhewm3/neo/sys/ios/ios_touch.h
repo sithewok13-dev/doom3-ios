@@ -138,8 +138,15 @@ int		IOS_GetLevels( iosTouchLevel_t *out, int max );
 void	IOS_GoToLevel( const char *path );
 
 // Cheat mode going on: its sound, Betruger's laugh, from the player's own
-// DOOM 3 files
-void	IOS_PlayCheatSound( void );
+// DOOM 3 files -- the one picked (a sound shader's name), or else the one
+// found by its name. The laughs to pick from: the sound shaders with
+// "laugh" in their names; one played, on whatever plays now or (while the
+// list is up, the game held) on the menus' sounds
+void	IOS_PlayCheatSound( const char *picked );
+#define IOSTOUCH_MAX_SOUNDS 80
+int		IOS_GetLaughs( char names[][64], int max );
+void	IOS_PlaySound( const char *name );
+void	IOS_TrySounds( int on );
 
 #ifdef __cplusplus
 }
