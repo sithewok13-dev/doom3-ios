@@ -40,6 +40,7 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import <AVFoundation/AVFoundation.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -192,6 +193,10 @@ static void SetPaths( void ) {
 
 int main( int argc, char *argv[] ) {
 	@autoreleasepool {
+		// the game's sound plays with the phone on silent, as the Half-Life
+		// port's does (iOS's default, Solo Ambient, follows the silent switch)
+		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
+		[[AVAudioSession sharedInstance] setActive:YES error:nil];
 		// until the player's game files are in Documents, a native screen
 		// says what to copy where
 		IOS_WaitForGameData();
