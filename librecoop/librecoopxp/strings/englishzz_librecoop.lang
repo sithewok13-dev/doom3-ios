@@ -1,0 +1,14 @@
+// string table
+// english
+//
+// LibreCoop's own strings for Resurrection of Evil: the multiplayer game
+// types, with Coop (and, in the RoE list, Survival) added. Everything else
+// comes from the player's own DOOM 3 and Resurrection of Evil files
+// (strings/english.lang and english001.lang in their paks). The engine loads
+// every strings/english*.lang in name order and the last one wins, so this
+// file is named to load after the game's.
+
+{
+	"#str_04228"	"Deathmatch;Tourney;Team DM;Last Man;Coop"
+	"#str_00100137"	"Deathmatch;Tourney;Team DM;Last Man;Coop;Survival;CTF"
+}

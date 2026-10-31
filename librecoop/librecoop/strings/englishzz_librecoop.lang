@@ -1,0 +1,12 @@
+// string table
+// english
+//
+// LibreCoop's own string: the multiplayer game types, with Coop and
+// Survival added. Everything else comes from the player's own DOOM 3
+// files (strings/english.lang in their paks). The engine loads every
+// strings/english*.lang in name order and the last one wins, so this file
+// is named to load after the game's.
+
+{
+	"#str_04228"	"Deathmatch;Tourney;Team DM;Last Man;Coop;Survival"
+}

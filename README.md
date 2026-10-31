@@ -40,7 +40,9 @@ cmake --build build-ios                # build-ios/DOOM3.app
   survival for both games), imported at the version in `librecoop/UPSTREAM`,
   with the touch controls' hooks added to its player code; its game code is
   linked in, and its mod folders (its own defs, scripts and strings) come in
-  the app and are put in Documents, where the Mods menu has them
+  the app and are put in Documents, where the Mods menu has them. Its string
+  tables are cut down to LibreCoop's own lines (the game-type lists with Coop
+  and Survival); the rest of the game's text comes from your own files
 - `docs/ios/PLAN.md`: the plan and the decisions made so far
 
 ## Credits
