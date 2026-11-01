@@ -101,6 +101,8 @@ questions.**
   - The tray holds GYRO (tap = last mode; hold opens MODE and SENS), FPS, CAMERA switch, CHEAT
     switch, LEVEL (only while cheating), CONTROLS (NORMAL/SWAPPED) and keyboard (the console, for
     typed cheats).
+  - Under the tray, while it's open: the app's version in small dim text, e.g. "v1.0 (57)"
+    (`CFBundleShortVersionString`, then `CFBundleVersion`, the CI run number). It isn't a button.
   - It has JK's slide-or-tap behaviour, stays clear of the FIRE cluster, and a touch elsewhere both
     closes it and acts.
 - **Controller options panel** (JK's `iosPadPanel`): hold Start 0.45 s. It has LOOK X/Y, CURVE,

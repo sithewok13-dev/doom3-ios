@@ -33,8 +33,10 @@
  *   speed: a tap the next of IOSTOUCH_LOOK_STEPS; held, the default, 1x, as
  *   the Half-Life port's SENS), FPS, CHEAT (CHEAT shown or not: shown,
  *   cheat mode goes on; held, the laugh it makes going on, picked from
- *   DOOM 3's), LEVEL (in cheat mode) and the keyboard (the console). Cheat
- *   mode is off as the app starts, CHEAT shown greyed if it's switched on.
+ *   DOOM 3's), LEVEL (in cheat mode) and the keyboard (the console). Under
+ *   the tray, small and dim, the app's version ("v1.0 (57)"): only text, a
+ *   touch there is a touch off the tray. Cheat mode is off as the app
+ *   starts, CHEAT shown greyed if it's switched on.
  * - Gyro aiming, OFF unless switched on: TOUCH aims while a thumb is down on
  *   the stick, the look area or a button that looks; ALWAYS aims always.
  * - Over a cinematic or the story intro: a tap anywhere skips it.
@@ -717,6 +719,21 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	return chevrons;
 }
 
+// The app's version for under the tray, from its Info.plist: "v" and
+// CFBundleShortVersionString, then CFBundleVersion in brackets when it's
+// there and not the same (CI's run number: "v1.0 (57)")
+static NSString* iosTouch_VersionText(void)
+{
+	NSDictionary* info = [[NSBundle mainBundle] infoDictionary];
+	NSString* version = info[@"CFBundleShortVersionString"];
+	NSString* build = info[@"CFBundleVersion"];
+	if (![version isKindOfClass:[NSString class]] || version.length == 0) version = @"?";
+	if ([build isKindOfClass:[NSString class]] && build.length > 0 && ![build isEqualToString:version]) {
+		return [NSString stringWithFormat:@"v%@ (%@)", version, build];
+	}
+	return [NSString stringWithFormat:@"v%@", version];
+}
+
 @interface IOSTouchOverlay : UIView <UITableViewDataSource, UITableViewDelegate>
 @end
 
@@ -730,6 +747,7 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	CAShapeLayer*		runMarker;
 	CAShapeLayer*		runChevrons;	// the marker's double chevron
 	UIView*				trayBacking;
+	UILabel*			trayVersion;	// under the tray: the app's version, only text
 	UILabel*			skipLabel;		// over a cinematic: "SKIP"
 	UIButton*			consoleKeysButton;	// over the console: hide / show the keyboard
 	UIButton*			consoleCloseButton;	// and close it
@@ -784,6 +802,15 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	trayBacking.layer.cornerRadius = IOSTOUCH_TOP_R + 6.0;
 	trayBacking.hidden = YES;
 	[self addSubview:trayBacking];
+	trayVersion = [[UILabel alloc] init];
+	trayVersion.text = iosTouch_VersionText();
+	trayVersion.textAlignment = NSTextAlignmentCenter;
+	trayVersion.font = [UIFont systemFontOfSize:9 weight:UIFontWeightMedium];
+	trayVersion.textColor = [UIColor colorWithWhite:1.0 alpha:0.5];
+	trayVersion.userInteractionEnabled = NO;
+	trayVersion.hidden = YES;
+	[trayVersion sizeToFit];
+	[self addSubview:trayVersion];
 
 	for (int i = 0; i < NUM_BUTTONS; i++) {
 		const iosTouchButton_t* b = &iosTouch_aButtons[i];
@@ -1162,6 +1189,10 @@ static int iosTouch_TrayHas(int b)
 	int first = BTN_TRAY_GYRO;	// (the row's first)
 	CGRect row = CGRectMake(aCentres[first].x - r, aCentres[first].y - r,
 							aCentres[BTN_TRAY_KEYS].x - aCentres[first].x + 2 * r, 2 * r);
+	// the version just under the row, in the middle of it (clear of MODE
+	// and SENS under GYRO, when they're out)
+	CGSize v = trayVersion.bounds.size;
+	trayVersion.center = CGPointMake(CGRectGetMidX(row), CGRectGetMaxY(row) + 2.0 + 0.5 * v.height);
 	if (iosTouch_bOptsOpen) {
 		row.size.height += IOSTOUCH_TRAY_STEP;
 	}
@@ -1195,6 +1226,7 @@ static int iosTouch_TrayHas(int b)
 		aButtonViews[i].hidden = !bOpen || (i >= BTN_FIRST_OPT && !iosTouch_bOptsOpen) || !iosTouch_TrayHas(i);
 	}
 	trayBacking.hidden = !bOpen;
+	trayVersion.hidden = !bOpen;
 	[self layoutTray];
 	[self refreshLabels];
 }
