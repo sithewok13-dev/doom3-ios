@@ -101,8 +101,10 @@ questions.**
   - The tray holds GYRO (tap = last mode; hold opens MODE and SENS), FPS, CAMERA switch, CHEAT
     switch, LEVEL (only while cheating), CONTROLS (NORMAL/SWAPPED) and keyboard (the console, for
     typed cheats).
-  - Under the tray, while it's open: the app's version in small dim text, e.g. "v1.0 (57)"
-    (`CFBundleShortVersionString`, then `CFBundleVersion`, the CI run number). It isn't a button.
+  - Under the tray, while it's open: the build stamp in small dim text, e.g. "build 80 · Nov 9"
+    (`SWBuildNumber`, the CI run number, and `SWBuildDate`, the UTC date, both written into
+    Info.plist by CI; "build dev" without them). It isn't a button. Each push's build also updates
+    the public `ios-latest` prerelease, whose text starts "Build 80 · 2026-11-09".
   - It has JK's slide-or-tap behaviour, stays clear of the FIRE cluster, and a touch elsewhere both
     closes it and acts.
 - **Controller options panel** (JK's `iosPadPanel`): hold Start 0.45 s. It has LOOK X/Y, CURVE,

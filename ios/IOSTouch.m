@@ -34,7 +34,7 @@
  *   the Half-Life port's SENS), FPS, CHEAT (CHEAT shown or not: shown,
  *   cheat mode goes on; held, the laugh it makes going on, picked from
  *   DOOM 3's), LEVEL (in cheat mode) and the keyboard (the console). Under
- *   the tray, small and dim, the app's version ("v1.0 (57)"): only text, a
+ *   the tray, small and dim, the build stamp ("build 80 · Nov 9"): only text, a
  *   touch there is a touch off the tray. Cheat mode is off as the app
  *   starts, CHEAT shown greyed if it's switched on.
  * - Gyro aiming, OFF unless switched on: TOUCH aims while a thumb is down on
@@ -719,19 +719,26 @@ static UIBezierPath* iosTouch_RunChevrons(CGPoint m)
 	return chevrons;
 }
 
-// The app's version for under the tray, from its Info.plist: "v" and
-// CFBundleShortVersionString, then CFBundleVersion in brackets when it's
-// there and not the same (CI's run number: "v1.0 (57)")
+// The build stamp for under the tray, from its Info.plist: "build 80 · Nov 9"
+// (SWBuildNumber, the CI run number, and SWBuildDate, YYYY-MM-DD in UTC,
+// both written by CI), or "build dev" when they're missing
 static NSString* iosTouch_VersionText(void)
 {
+	static NSString* const months[12] = {
+		@"Jan", @"Feb", @"Mar", @"Apr", @"May", @"Jun", @"Jul", @"Aug", @"Sep", @"Oct", @"Nov", @"Dec"
+	};
 	NSDictionary* info = [[NSBundle mainBundle] infoDictionary];
-	NSString* version = info[@"CFBundleShortVersionString"];
-	NSString* build = info[@"CFBundleVersion"];
-	if (![version isKindOfClass:[NSString class]] || version.length == 0) version = @"?";
-	if ([build isKindOfClass:[NSString class]] && build.length > 0 && ![build isEqualToString:version]) {
-		return [NSString stringWithFormat:@"v%@ (%@)", version, build];
+	NSString* number = info[@"SWBuildNumber"];
+	NSString* date = info[@"SWBuildDate"];
+	int year = 0, month = 0, day = 0;
+	if ([number isKindOfClass:[NSString class]] && number.length > 0 &&
+		[number rangeOfCharacterFromSet:[[NSCharacterSet decimalDigitCharacterSet] invertedSet]].location == NSNotFound &&
+		[date isKindOfClass:[NSString class]] &&
+		sscanf(date.UTF8String, "%4d-%2d-%2d", &year, &month, &day) == 3 &&
+		month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+		return [NSString stringWithFormat:@"build %@ \u00B7 %@ %d", number, months[month - 1], day];
 	}
-	return [NSString stringWithFormat:@"v%@", version];
+	return @"build dev";
 }
 
 @interface IOSTouchOverlay : UIView <UITableViewDataSource, UITableViewDelegate>
@@ -805,7 +812,7 @@ static NSString* iosTouch_VersionText(void)
 	trayVersion = [[UILabel alloc] init];
 	trayVersion.text = iosTouch_VersionText();
 	trayVersion.textAlignment = NSTextAlignmentCenter;
-	trayVersion.font = [UIFont systemFontOfSize:9 weight:UIFontWeightMedium];
+	trayVersion.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
 	trayVersion.textColor = [UIColor colorWithWhite:1.0 alpha:0.5];
 	trayVersion.userInteractionEnabled = NO;
 	trayVersion.hidden = YES;

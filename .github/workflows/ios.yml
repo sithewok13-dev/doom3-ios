@@ -2,7 +2,7 @@
 # renderer, both games (DOOM 3 and Resurrection of Evil) in one app, with
 # LibreCoop's co-op for each (librecoop/), and
 # packages it as an UNSIGNED .ipa (ad-hoc signature only), kept as a workflow
-# artifact. Sideload it (SideStore, Feather) or hand it to ios-pipeline's
+# artifact and published to the public "ios-latest" prerelease. Sideload it (SideStore, Feather) or hand it to ios-pipeline's
 # testflight-ipa.yml for TestFlight.
 #
 # No game data is built in or bundled: the app reads base/ and d3xp/ from its
@@ -41,6 +41,9 @@ jobs:
     runs-on: macos-15
     # ANGLE's first (uncached) build is long
     timeout-minutes: 330
+    outputs:
+      build_number: ${{ steps.package.outputs.build_number }}
+      build_date: ${{ steps.package.outputs.build_date }}
 
     steps:
       - name: Checkout
@@ -199,9 +202,16 @@ jobs:
           if-no-files-found: ignore
 
       - name: Package .ipa
+        id: package
         run: |
           APP=build-ios/DOOM3.app
           test -d "$APP"
+          # The build stamp under MENU's tray ("build 80 · Nov 9"): the run
+          # number (CFBundleVersion is already it) and the UTC date
+          BUILD_DATE=$(date -u +%Y-%m-%d)
+          /usr/libexec/PlistBuddy -c "Add :SWBuildNumber string ${{ github.run_number }}" -c "Add :SWBuildDate string $BUILD_DATE" "$APP/Info.plist"
+          echo "build_number=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
           # Game data must never be bundled.
           if find "$APP" -iname '*.pk4' | grep -q .; then
             echo "::error::Game data (.pk4) found in the app bundle"
@@ -223,7 +233,7 @@ jobs:
           rm -rf Payload && mkdir Payload
           cp -R "$APP" Payload/
           zip -qry DOOM3-iOS-unsigned.ipa Payload
-          plutil -p Payload/DOOM3.app/Info.plist | grep -E 'CFBundleIdentifier|CFBundleDisplayName|CFBundleVersion|MinimumOSVersion|CFBundleIcons'
+          plutil -p Payload/DOOM3.app/Info.plist | grep -E 'CFBundleIdentifier|CFBundleDisplayName|CFBundleShortVersionString|CFBundleVersion|SWBuild|MinimumOSVersion|CFBundleIcons'
           lipo -info Payload/DOOM3.app/DOOM3
           # ANGLE is linked and bundled, Apple's OpenGL ES isn't
           otool -L Payload/DOOM3.app/DOOM3 | grep -E 'libEGL|libGLESv2'
@@ -241,3 +251,43 @@ jobs:
           name: DOOM3-iOS-unsigned.ipa
           path: DOOM3-iOS-unsigned.ipa
           if-no-files-found: error
+
+  # Every push to ios (and a manual run of ios): the public "ios-latest"
+  # prerelease, never marked Latest, with this build's .ipa. Its body's first
+  # line is the build stamp, which the builds page reads.
+  latest:
+    name: Publish to "ios-latest" release
+    if: github.ref == 'refs/heads/ios'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: ios-latest
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: DOOM3-iOS-unsigned.ipa
+
+      - name: Check for game data
+        run: |
+          ls -l DOOM3-iOS-unsigned.ipa
+          if unzip -Z1 DOOM3-iOS-unsigned.ipa | grep -iE '\.(pk4|pk3)$'; then
+            echo "::error::Game data in the .ipa"
+            exit 1
+          fi
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-latest
+          target_commitish: ${{ github.sha }}
+          name: iOS latest build
+          prerelease: true
+          make_latest: false
+          body: |
+            Build ${{ needs.build.outputs.build_number }} · ${{ needs.build.outputs.build_date }}
+            Test build of DOOM 3 for iOS, rebuilt on every push to the ios branch. Game files are not included.
+          files: DOOM3-iOS-unsigned.ipa
+          fail_on_unmatched_files: true
