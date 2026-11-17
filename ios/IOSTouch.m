@@ -28,9 +28,10 @@
  *   fly a free camera round it, CAMERA takes photos, X goes back); slid up,
  *   the cinematic burst (photos sweeping round the player in a stopped
  *   moment). All go to Photos. CHEAT, a pentagram filling its round:
- *   held IOSTOUCH_CHEAT_HOLD (a ring), the main cheat on or off (god mode,
- *   every weapon, endless ammo: full magazines, never a reload), red while
- *   on, with its laugh going on; MENU's tray has LEVEL then, a list of the
+ *   held IOSTOUCH_CHEAT_HOLD (a ring of fire), the main cheat on or off (god
+ *   mode, every weapon, endless ammo: full magazines, never a reload). Off,
+ *   the star is dark iron; switching on, a flash and embers; on, it glows
+ *   red with a glow in its round beating like a heart, with its laugh going on; MENU's tray has LEVEL then, a list of the
  *   game's levels. Tapped, the cheat menu under it, whether the main cheat
  *   is on or not: Noclip, Notarget, Slow motion, each a tap to switch
  *   (gold while on), the menu staying open; a touch off it closes it
@@ -173,6 +174,13 @@ static const float iosTouch_aLookSteps[] = { 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0
 // The cheat's red (its pentagram and edge while on), and the gold of its
 // menu's switches that are on
 #define IOSTOUCH_CHEAT_RED(a) [UIColor colorWithRed:0.9 green:0.32 blue:0.28 alpha:(a)]
+// CHEAT's looks: the star dark iron while off (a faint red edge), glowing
+// hell red while on, a glow in its round beating like a heart, and its hold
+// ring filling in fire
+#define IOSTOUCH_CHEAT_IRON(a) [UIColor colorWithRed:0.56 green:0.51 blue:0.49 alpha:(a)]
+#define IOSTOUCH_CHEAT_HOT(a) [UIColor colorWithRed:1.0 green:0.27 blue:0.13 alpha:(a)]
+#define IOSTOUCH_CHEAT_FIRE(a) [UIColor colorWithRed:1.0 green:0.42 blue:0.1 alpha:(a)]
+#define IOSTOUCH_CHEAT_BEAT 1.6
 #define IOSTOUCH_CHEAT_GOLD(a) [UIColor colorWithRed:1.0 green:0.85 blue:0.3 alpha:(a)]
 // Gyro aiming (iosTouch_GyroSample): CoreMotion's device motion
 // IOSTOUCH_GYRO_HZ times a second. Turning is measured about the way up, so
@@ -791,6 +799,8 @@ static NSString* iosTouch_VersionText(void)
 	UIButton*			resumeButton;		// over a game in play: back to it
 	intptr_t			menuTextField;		// the menus' text field the keyboard came up for (0: none)
 	CAShapeLayer*		cheatEmblem;	// CHEAT's pentagram, its points on the button's edge
+	CAShapeLayer*		cheatEmblemEdge;	// off: the pentagram's faint red edge
+	CAGradientLayer*	cheatGlow;		// on: the red glow inside the round, beating
 	// the cheat menu (CHEAT tapped): its rows, and their names and ON / OFF
 	UIView*				cheatPanel;
 	UIButton*			aCheatRows[IOSTOUCH_CHEAT_ROWS];
@@ -923,12 +933,39 @@ static NSString* iosTouch_VersionText(void)
 			if (k == 0) [path moveToPoint:q];
 			else [path addLineToPoint:q];
 		}
+		// the glow under it (on), from the middle out to nothing at the edge
+		cheatGlow = [CAGradientLayer layer];
+		cheatGlow.type = kCAGradientLayerRadial;
+		cheatGlow.frame = CGRectMake(0, 0, 2 * r, 2 * r);
+		cheatGlow.startPoint = CGPointMake(0.5, 0.5);
+		cheatGlow.endPoint = CGPointMake(1.0, 1.0);
+		cheatGlow.colors = @[ (id)[UIColor colorWithRed:1.0 green:0.16 blue:0.08 alpha:0.6].CGColor,
+							  (id)[UIColor colorWithRed:0.6 green:0.04 blue:0.02 alpha:0.35].CGColor,
+							  (id)[UIColor colorWithRed:0.35 green:0.02 blue:0.01 alpha:0.15].CGColor ];
+		cheatGlow.locations = @[ @0.0, @0.55, @1.0 ];
+		cheatGlow.hidden = YES;
+		[aButtonViews[BTN_CHEAT].layer insertSublayer:cheatGlow atIndex:0];
 		cheatEmblem.path = path.CGPath;
 		cheatEmblem.fillColor = UIColor.clearColor.CGColor;
-		cheatEmblem.strokeColor = [UIColor colorWithWhite:1.0 alpha:0.85].CGColor;
-		cheatEmblem.lineWidth = 1.6;
-		cheatEmblem.lineJoin = kCALineJoinRound;
-		[aButtonViews[BTN_CHEAT].layer insertSublayer:cheatEmblem atIndex:0];
+		cheatEmblem.strokeColor = IOSTOUCH_CHEAT_IRON(0.9).CGColor;
+		cheatEmblem.lineWidth = 2.0;
+		cheatEmblem.lineJoin = kCALineJoinMiter;
+		cheatEmblem.shadowColor = IOSTOUCH_CHEAT_HOT(1.0).CGColor;
+		cheatEmblem.shadowOffset = CGSizeZero;
+		cheatEmblem.shadowRadius = 2.5;
+		cheatEmblem.shadowOpacity = 0.0;
+		[aButtonViews[BTN_CHEAT].layer insertSublayer:cheatEmblem above:cheatGlow];
+		cheatEmblemEdge = [CAShapeLayer layer];
+		cheatEmblemEdge.frame = cheatEmblem.frame;
+		cheatEmblemEdge.path = path.CGPath;
+		cheatEmblemEdge.fillColor = UIColor.clearColor.CGColor;
+		cheatEmblemEdge.strokeColor = [UIColor colorWithRed:0.64 green:0.22 blue:0.17 alpha:0.5].CGColor;
+		cheatEmblemEdge.lineWidth = 0.5;
+		cheatEmblemEdge.lineJoin = kCALineJoinMiter;
+		[aButtonViews[BTN_CHEAT].layer insertSublayer:cheatEmblemEdge above:cheatEmblem];
+		// its hold ring fills in fire
+		if (aHoldRings[BTN_CHEAT]) aHoldRings[BTN_CHEAT].strokeColor = IOSTOUCH_CHEAT_FIRE(0.95).CGColor;
+		aButtonViews[BTN_CHEAT].layer.borderColor = [UIColor colorWithRed:0.43 green:0.23 blue:0.2 alpha:0.7].CGColor;
 	}
 	// the tray's RUN shows the run marker's double chevron, as big and in
 	// the same place in its round
@@ -2464,13 +2501,87 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	[thump impactOccurred];
 	// (Betruger's laugh: the one picked, else his found by its name)
 	IOS_PlayCheatSound([[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY].UTF8String);
+	[self cheatBurst];
+}
+
+// The main cheat switching on: a flash in CHEAT's round and embers flying
+// out from the star to its edge, gone in under a second
+- (void)cheatBurst
+{
+	CALayer* host = aButtonViews[BTN_CHEAT].layer;
+	CGFloat r = iosTouch_aButtons[BTN_CHEAT].radius;
+	CGPoint c = CGPointMake(r, r);
+	CAGradientLayer* flash = [CAGradientLayer layer];
+	flash.type = kCAGradientLayerRadial;
+	flash.frame = CGRectMake(0, 0, 2 * r, 2 * r);
+	flash.startPoint = CGPointMake(0.5, 0.5);
+	flash.endPoint = CGPointMake(1.0, 1.0);
+	flash.colors = @[ (id)[UIColor colorWithRed:1.0 green:0.85 blue:0.5 alpha:0.9].CGColor,
+					  (id)[UIColor colorWithRed:1.0 green:0.3 blue:0.1 alpha:0.5].CGColor,
+					  (id)[UIColor colorWithRed:1.0 green:0.2 blue:0.05 alpha:0.0].CGColor ];
+	flash.opacity = 0.0;
+	[host addSublayer:flash];
+	CAKeyframeAnimation* fa = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
+	fa.values = @[ @0.0, @1.0, @0.0 ];
+	fa.keyTimes = @[ @0.0, @0.2, @1.0 ];
+	fa.duration = 0.6;
+	[flash addAnimation:fa forKey:@"flash"];
+	NSMutableArray* gone = [NSMutableArray arrayWithObject:flash];
+	static const CGFloat aEmberColor[3][3] = { { 1.0, 0.7, 0.28 }, { 1.0, 0.42, 0.16 }, { 1.0, 0.82, 0.4 } };
+	for (int k = 0; k < 10; k++) {
+		CGFloat a = (k + 0.3 * (k & 1)) * 2.0 * M_PI / 10.0;
+		CGFloat size = (k % 3 == 0) ? 3.0 : 2.2;
+		CALayer* e = [CALayer layer];
+		e.bounds = CGRectMake(0, 0, size, size);
+		e.cornerRadius = size / 2.0;
+		e.backgroundColor = [UIColor colorWithRed:aEmberColor[k % 3][0] green:aEmberColor[k % 3][1] blue:aEmberColor[k % 3][2] alpha:1.0].CGColor;
+		e.position = c;
+		e.opacity = 0.0;
+		[host addSublayer:e];
+		CABasicAnimation* move = [CABasicAnimation animationWithKeyPath:@"position"];
+		move.fromValue = [NSValue valueWithCGPoint:CGPointMake(c.x + 0.25 * r * cos(a), c.y + 0.25 * r * sin(a))];
+		move.toValue = [NSValue valueWithCGPoint:CGPointMake(c.x + 1.05 * r * cos(a), c.y + 1.05 * r * sin(a))];
+		move.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+		CAKeyframeAnimation* fade = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
+		fade.values = @[ @0.0, @1.0, @0.0 ];
+		fade.keyTimes = @[ @0.0, @0.15, @1.0 ];
+		CAAnimationGroup* g = [CAAnimationGroup animation];
+		g.animations = @[ move, fade ];
+		g.duration = 0.55 + 0.04 * (k % 4);
+		g.beginTime = CACurrentMediaTime() + 0.03 * (k % 3);
+		[e addAnimation:g forKey:@"ember"];
+		[gone addObject:e];
+	}
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		for (CALayer* l in gone) [l removeFromSuperlayer];
+	});
 }
 
 // CHEAT red while the main cheat is on (greyed off); the tray's LEVEL only then
 - (void)refreshCheatLooks
 {
-	cheatEmblem.strokeColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_RED(0.95).CGColor : [UIColor colorWithWhite:0.6 alpha:0.45].CGColor;
-	aButtonViews[BTN_CHEAT].layer.borderColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_RED(0.8).CGColor : [UIColor colorWithWhite:0.6 alpha:0.35].CGColor;
+	[CATransaction begin];
+	[CATransaction setDisableActions:YES];
+	cheatEmblem.strokeColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_HOT(1.0).CGColor : IOSTOUCH_CHEAT_IRON(0.9).CGColor;
+	cheatEmblem.shadowOpacity = iosTouch_bCheatOn ? 0.9 : 0.0;
+	cheatEmblemEdge.hidden = iosTouch_bCheatOn;
+	cheatGlow.hidden = !iosTouch_bCheatOn;
+	aButtonViews[BTN_CHEAT].layer.borderColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_HOT(0.85).CGColor
+		: [UIColor colorWithRed:0.43 green:0.23 blue:0.2 alpha:0.7].CGColor;
+	[CATransaction commit];
+	// on: the glow beats like a heart (kept through the app going to the
+	// background and back)
+	if (iosTouch_bCheatOn && ![cheatGlow animationForKey:@"beat"]) {
+		CAKeyframeAnimation* beat = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
+		beat.values = @[ @0.55, @1.0, @0.7, @0.95, @0.55, @0.55 ];
+		beat.keyTimes = @[ @0.0, @0.12, @0.24, @0.36, @0.6, @1.0 ];
+		beat.duration = IOSTOUCH_CHEAT_BEAT;
+		beat.repeatCount = HUGE_VALF;
+		beat.removedOnCompletion = NO;
+		[cheatGlow addAnimation:beat forKey:@"beat"];
+	} else if (!iosTouch_bCheatOn) {
+		[cheatGlow removeAnimationForKey:@"beat"];
+	}
 	if (iosTouch_bTrayOpen) [self setTrayOpen:1];
 	else [self layoutTray];
 }
