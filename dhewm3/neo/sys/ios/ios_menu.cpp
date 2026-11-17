@@ -41,6 +41,7 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 #include "sys/sys_public.h"
 #include "sys/ios/ios_input.h"
 #include "sys/ios/ios_menu.h"
+#include "sys/ios/ios_touch.h"
 
 // what the menu asked for since the last frame, done between frames (its
 // taps come in the middle of one, as SDL pumps its events)
