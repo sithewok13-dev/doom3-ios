@@ -34,6 +34,7 @@ void	IOS_TouchFrame( void );
 void	IOS_AddTouchToUsercmd( usercmd_t &cmd, idVec3 &viewangles );
 bool	IOS_GameHeld( void );	// the game holds still: the weapon wheel is open
 void	IOS_MenuFrame( void );
+void	IOS_CheatMapChange( void );	// a new level or a saved game loading: the cheat menu's switches end
 bool	IOS_IntroOver( void );	// the intro videos as the game starts are over	// (sys/ios/ios_menu.cpp) what the app's menu asked for
 
 // (ui/Window.cpp) the text or list under x, y in gui scrolled by lines

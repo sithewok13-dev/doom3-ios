@@ -36,6 +36,7 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 #include "framework/FileSystem.h"
 #include "framework/KeyInput.h"
 #include "framework/Session_local.h"
+#include "framework/async/AsyncNetwork.h"
 #include "ui/UserInterface.h"
 #include "sys/sys_public.h"
 #include "sys/ios/ios_input.h"
@@ -46,6 +47,12 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 static int newGameSkill = -1;
 static bool quitAsked;
 static idStr classicLabel;
+// the touch controls' SAVE or LOAD tapped: DOOM 3's own menu, on its Save
+// Game or Load Game page (-1: none asked; 0 load, 1 save), since then
+static int savePageAsked = -1;
+static int savePageTime;
+static int savePageFrames;	// frames the main menu has shown since
+static const int SAVE_PAGE_MSEC = 2000;
 
 int IOS_MenuIsMain( void ) {
 	return sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiMainMenu;
@@ -200,6 +207,47 @@ void IOS_MenuSwitchGame( const char *dir ) {
 	cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "reloadEngine menu\n" );
 }
 
+void IOS_OpenSaveMenu( int save ) {
+	if ( !sessLocal.mapSpawned || sessLocal.guiActive != NULL || idAsyncNetwork::IsActive() ) {
+		return;
+	}
+	savePageAsked = save ? 1 : 0;
+	savePageTime = Sys_Milliseconds();
+	savePageFrames = 0;
+}
+
+// the game's menu opened over the game, then (once it has been drawn, so its
+// buttons have their places) its SAVE GAME or LOAD GAME pressed, as a mouse
+// would; given up on if it doesn't show in time
+static void IOS_SavePageFrame( void ) {
+	if ( savePageAsked < 0 ) {
+		return;
+	}
+	if ( Sys_Milliseconds() - savePageTime > SAVE_PAGE_MSEC ) {
+		savePageAsked = -1;
+		return;
+	}
+	if ( !IOS_MenuIsMain() ) {
+		if ( sessLocal.guiActive == NULL && sessLocal.mapSpawned ) {
+			sessLocal.StartMenu();
+			IOS_MenuShowClassic();
+		}
+		return;
+	}
+	if ( ++savePageFrames < 3 ) {
+		return;
+	}
+	static const char * const saveLabels[] = { "SAVE GAME", "SAVE" };
+	static const char * const loadLabels[] = { "LOAD GAME", "LOAD" };
+	const char * const *labels = savePageAsked ? saveLabels : loadLabels;
+	for ( int i = 0; i < 2; i++ ) {
+		if ( IOS_MenuPressClassic( labels[i] ) ) {
+			savePageAsked = -1;
+			return;
+		}
+	}
+}
+
 int IOS_MenuPressClassic( const char *label ) {
 	float x, y;
 	if ( !IOS_MenuIsMain() || !IOS_GuiFindLabel( sessLocal.guiMainMenu, label, &x, &y ) ) {
@@ -244,6 +292,7 @@ void IOS_MenuFrame( void ) {
 			sessLocal.HandleMainMenuCommands( va( "startGame %s", map ) );
 		}
 	}
+	IOS_SavePageFrame();
 	if ( quitAsked ) {
 		quitAsked = false;
 		cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "disconnect\n" );

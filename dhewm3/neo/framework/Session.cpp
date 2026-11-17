@@ -1551,6 +1551,11 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	int		i;
 	bool	reloadingSameMap;
 
+#ifdef D3_IOS
+	// iOS: the cheat menu's switches end at each new level and loaded game
+	IOS_CheatMapChange();
+#endif
+
 	// close console and remove any prints from the notify lines
 	console->Close();
 

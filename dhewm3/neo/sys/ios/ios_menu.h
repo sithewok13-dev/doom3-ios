@@ -76,6 +76,9 @@ void	IOS_MenuSwitchGame( const char *dir );
 // DOOM 3's own menu: its button showing label pressed (MULTIPLAYER,
 // OPTIONS...); 1 if there was one
 int		IOS_MenuPressClassic( const char *label );
+// (the app's menu, ios/IOSMenu.m) DOOM 3's own menu showing now, not the
+// app's MODERN one over it, until the menus are left
+void	IOS_MenuShowClassic( void );
 
 // settings: a cvar's value, and set
 float	IOS_CVarFloat( const char *name );

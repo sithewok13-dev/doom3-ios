@@ -938,6 +938,11 @@ void IOSMenu_Frame(UIView* game, UIView* overlay, int bOverMenus)
 	[iosMenu_pView frame:bOverMenus];
 }
 
+void IOS_MenuShowClassic(void)
+{
+	iosMenu_pView.classicNow = YES;
+}
+
 int IOSMenu_Showing(void)
 {
 	return iosMenu_pView && !iosMenu_pView.hidden;

@@ -80,11 +80,19 @@ static bool dismissAsked;
 // the menu over a game asked to go, back to the game
 static bool resumeAsked;
 
-// the cheat button, and the cheats as the game last reported them
+// the cheat button (the main cheat), as the game last reported it
 static int cheatWanted;
 static int cheatSerial;
-static bool flyAsked;
-static bool cheatGod, cheatNoclip;
+static bool cheatGod;
+// the cheat menu's switches (IOSTOUCH_CHEAT_*), *Serial changing each time
+// they do; slow motion's and low gravity's cvars as they were before, and as
+// they were set
+static int cheatExtras;
+static int cheatExtrasSerial;
+static float slowmoSaved = 1.0f;
+static float gravitySaved, gravitySet;
+static const float IOS_SLOWMO_SCALE = 0.5f;
+static const float IOS_LOWGRAV_SCALE = 0.25f;
 
 // the camera: a photo asked for; a selfie waits for the third person view
 // to be drawn before it's taken
@@ -258,25 +266,79 @@ int IOS_CheatWanted( int *serial ) {
 	return cheatWanted;
 }
 
-void IOS_ToggleFly( void ) {
-	flyAsked = true;
-}
-
-int IOS_TakeFly( void ) {
-	int asked = flyAsked;
-	flyAsked = false;
-	return asked;
-}
-
-void IOS_CheatReport( int god, int noclip ) {
+void IOS_CheatReport( int god ) {
 	cheatGod = god != 0;
-	cheatNoclip = noclip != 0;
 }
 
-void IOS_GetCheats( int *on, int *flying ) {
-	bool fresh = Sys_Milliseconds() - gameReport.time < GAME_REPORT_MSEC;
-	*on = fresh && cheatGod;
-	*flying = fresh && cheatNoclip;
+int IOS_CheatOn( void ) {
+	return Sys_Milliseconds() - gameReport.time < GAME_REPORT_MSEC && cheatGod;
+}
+
+/*
+================
+IOS_SetCheatExtra
+
+One of the cheat menu's switches, to exactly on or off (single player, in
+a level): noclip and notarget are the game's to put on the local player
+(IOS_CheatExtrasWanted); slow motion is timescale at half, low gravity
+g_gravity at a quarter of the level's, each put back as it was, unless
+something else changed it meanwhile
+================
+*/
+void IOS_SetCheatExtra( int bit, int on ) {
+	on = on != 0;
+	if ( on && ( IOS_Multiplayer() || !sessLocal.mapSpawned ) ) {
+		return;
+	}
+	if ( ( ( cheatExtras & bit ) != 0 ) == ( on != 0 ) ) {
+		return;
+	}
+	if ( bit == IOSTOUCH_CHEAT_SLOWMO ) {
+		if ( on ) {
+			slowmoSaved = cvarSystem->GetCVarFloat( "timescale" );
+			cvarSystem->SetCVarFloat( "timescale", IOS_SLOWMO_SCALE );
+		} else if ( idMath::Fabs( cvarSystem->GetCVarFloat( "timescale" ) - IOS_SLOWMO_SCALE ) < 0.001f ) {
+			cvarSystem->SetCVarFloat( "timescale", slowmoSaved );
+		}
+	} else if ( bit == IOSTOUCH_CHEAT_LOWGRAV ) {
+		if ( on ) {
+			gravitySaved = cvarSystem->GetCVarFloat( "g_gravity" );
+			gravitySet = gravitySaved * IOS_LOWGRAV_SCALE;
+			cvarSystem->SetCVarFloat( "g_gravity", gravitySet );
+		} else if ( idMath::Fabs( cvarSystem->GetCVarFloat( "g_gravity" ) - gravitySet ) < 0.01f ) {
+			cvarSystem->SetCVarFloat( "g_gravity", gravitySaved );
+		}
+	}
+	if ( on ) {
+		cheatExtras |= bit;
+	} else {
+		cheatExtras &= ~bit;
+	}
+	cheatExtrasSerial++;
+}
+
+int IOS_CheatExtras( void ) {
+	return cheatExtras;
+}
+
+void IOS_CheatExtrasOff( void ) {
+	static const int bits[] = { IOSTOUCH_CHEAT_NOCLIP, IOSTOUCH_CHEAT_NOTARGET, IOSTOUCH_CHEAT_SLOWMO, IOSTOUCH_CHEAT_LOWGRAV };
+	for ( int i = 0; i < 4; i++ ) {
+		IOS_SetCheatExtra( bits[i], 0 );
+	}
+}
+
+// a new level, or a saved game loading (idSessionLocal::ExecuteMapChange):
+// the switches end (each level's world sets its own gravity again), and the
+// game puts noclip and notarget off on its player, whatever the save had
+void IOS_CheatMapChange( void ) {
+	IOS_CheatExtrasOff();
+	cheatExtrasSerial++;
+}
+
+int IOS_CheatExtrasWanted( int *serial ) {
+	*serial = cheatExtrasSerial;
+	return cheatExtras;
 }
 
 int IOS_InGame( void ) {
@@ -788,6 +850,10 @@ void IOS_TouchFrame( void ) {
 		} else {
 			mode = IOSTOUCH_MODE_GAMEPLAY;
 		}
+	}
+	if ( cheatExtras && ( !sessLocal.mapSpawned || IOS_Multiplayer() ) ) {
+		// (out of the game: slow motion and low gravity mustn't stay on)
+		IOS_CheatExtrasOff();
 	}
 	if ( mode != IOSTOUCH_MODE_GAMEPLAY ) {
 		// (the wheel closes with the controls, and Action Freeze ends)

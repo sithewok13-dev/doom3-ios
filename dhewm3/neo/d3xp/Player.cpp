@@ -40,6 +40,10 @@ If you have questions concerning this license or the applicable additional terms
 
 #ifdef D3_IOS
 #include "sys/ios/ios_game.h"
+#include "sys/ios/ios_touch.h"
+
+// the cheat's endless ammo (the main cheat on, single player)
+static bool iosEndlessAmmo;
 #endif
 #include "Camera.h"
 #include "Fx.h"
@@ -7482,6 +7486,35 @@ void idPlayer::Think( void ) {
 	if ( spectating ) {
 		UpdateSpectating();
 	} else if ( health > 0 ) {
+#ifdef D3_IOS
+		// iOS, the cheat's endless ammo: every magazine and all the spare
+		// ammo full before the weapon thinks, so it never has to reload
+		// (the spare ammo filled again after, for Resurrection of Evil's
+		// magazines take theirs from it)
+		if ( iosEndlessAmmo && entityNumber == gameLocal.localClientNum && !gameLocal.isMultiplayer ) {
+			static const idEventDef *addToClip = idEventDef::FindEvent( "addToClip" );
+			for ( int pass = 0; pass < 2; pass++ ) {
+				for ( int i = 0; i < AMMO_NUMTYPES; i++ ) {
+					const char *ammoName = idWeapon::GetAmmoNameForNum( (ammo_t)i );
+					int max = ( ammoName && ammoName[0] ) ? inventory.MaxAmmoForAmmoClass( this, ammoName ) : 0;
+					if ( max > 0 && inventory.ammo[i] < max ) {
+						inventory.ammo[i] = max;
+					}
+				}
+				idWeapon *weap = weapon.GetEntity();
+				if ( pass == 0 && weap && addToClip && weap->ClipSize() > 0
+						&& weap->AmmoInClip() >= 0 && weap->AmmoInClip() < weap->ClipSize() ) {
+					weap->ProcessEvent( addToClip, weap->ClipSize() - weap->AmmoInClip() );
+				}
+			}
+			// the others full as they come out (as a weapon first picked up)
+			for ( int w = 0; w < MAX_WEAPONS; w++ ) {
+				if ( w != currentWeapon ) {
+					inventory.clip[w] = -1;
+				}
+			}
+		}
+#endif
 		UpdateWeapon();
 	}
 
@@ -7603,9 +7636,9 @@ void idPlayer::Think( void ) {
 	if ( entityNumber == gameLocal.localClientNum ) {
 		IOS_GameReport( objectiveSystemOpen, gameLocal.inCinematic );
 
-		// the cheat button: god mode, every weapon and its ammo, and the
-		// monsters taking no notice, all on or off at once (put on again for
-		// the player of each new level or loaded game); FLY: noclip
+		// the cheat button, held: god mode, every weapon and endless ammo,
+		// on or off at once (put on again for the player of each new level
+		// or loaded game)
 		static int cheatSerial = -1;
 		static int cheatSpawnId = -1;
 		int serial;
@@ -7617,18 +7650,23 @@ void idPlayer::Think( void ) {
 			cheatSpawnId = spawnId;
 			if ( apply ) {
 				godmode = cheatWanted != 0;
-				fl.notarget = cheatWanted != 0;
 				if ( cheatWanted ) {
 					cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "give all\n" );
-				} else {
-					noclip = false;
 				}
 			}
 		}
-		if ( IOS_TakeFly() && godmode && !gameLocal.isMultiplayer ) {
-			noclip = !noclip;
+		iosEndlessAmmo = !gameLocal.isMultiplayer && cheatWanted != 0;
+		// its menu's noclip and notarget, exactly as wanted, each time they're
+		// switched (and off for each new level or loaded game), apart from
+		// the main cheat
+		static int extrasSerial = -1;
+		int extras = IOS_CheatExtrasWanted( &serial );
+		if ( !gameLocal.isMultiplayer && serial != extrasSerial ) {
+			extrasSerial = serial;
+			noclip = ( extras & IOSTOUCH_CHEAT_NOCLIP ) != 0;
+			fl.notarget = ( extras & IOSTOUCH_CHEAT_NOTARGET ) != 0;
 		}
-		IOS_CheatReport( godmode, noclip );
+		IOS_CheatReport( godmode );
 		IOS_ViewReport( firstPersonViewOrigin.ToFloatPtr(), viewAngles.ToFloatPtr() );
 
 		// a tap puts away the tip or the objective showing

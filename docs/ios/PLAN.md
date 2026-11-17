@@ -121,14 +121,16 @@ Reused from JK's `iosTouch.m` (the C-core-plus-thin-UIKit split, in the shape Sa
 | Arc buttons | Radius 29–31, on a 115 pt arc around FIRE at 180°/135°/90° |
 | Top row | Radius 22 |
 | Look of buttons | 0.65 alpha idle, full when touched. 6 pt touch slop. 8 pt minimum margin past the safe area (notch, Dynamic Island, home bar) |
-| QUICK SAVE / LOAD | 0.3 s hold with a ring. Sliding off cancels. SAVE wins a tie |
+| SAVE / LOAD | Tap = DOOM 3's own Save Game / Load Game page (in a network game, a short note that it isn't available). 0.3 s hold with a ring = quick save / quick load. Sliding off cancels. SAVE wins a tie |
+| OPACITY (tray) | Tap = a slider under the tray (5% steps) for every control but the tray, never under 20%. Hold 0.45 s = back to 100%. Remembered |
+| FIRE cluster | As far right as it goes: FIRE's edge 16 pt from the screen's edge, but no button level with the Dynamic Island (the middle band, ±70 pt) inside the safe area |
 | Wheel (NEXT WPN) | Tap = next. A 10 pt slide opens it at once. A 0.3 s hold opens it to tap. Bottom gap cancels. Hysteresis and leash. A haptic tick per slice. Game holds still while open. Ammo count under each weapon; not owned = faint, out of ammo = grey |
 | Gyro | CoreMotion at 100 Hz, measured about gravity. OFF (default) / TOUCH / ALWAYS. SENS 1.0/1.5/2.0/3.0, default 1.5. 1.0 = the view turns as far as the phone. JK's smoothing and dead band. Off while a wheel, tray or menu is open |
 | Haptics | Selection tick for wheel slices and level counting. Light impact for the shutter and for cheat/fly/noclip toggles |
 | Remembered | NSUserDefaults, with the same key names as your ports (`iosTouchGyroMode`, `iosTouchGyroSens`, …) |
 
 DOOM 3's button set: FIRE, JUMP, CROUCH, RELOAD, FLASHLIGHT, PDA, NEXT WPN (wheel),
-QUICK SAVE, QUICK LOAD, CAMERA, CHEAT, MENU.
+SAVE, LOAD, CAMERA, CHEAT, MENU.
 - **No USE button:** DOOM 3 works doors and screens by aiming at them and pressing FIRE.
 - RoE's grabber and Artifact are weapons, so they go in the wheel.
 
@@ -163,6 +165,17 @@ would be new work; tell me if you want it.
   emblem glows red with a gold edge, like Jedi Knight's Sith emblem turning red.
 
 ## Phase 3: cheat (the `sithewok` cheat, same UX)
+
+**Now (as the Half-Life port's cheat menu):** the CHEAT button's pentagram fills its round.
+Held 0.5 s (a ring), CHEAT is the main cheat on or off: god mode, every weapon, endless ammo
+(full magazines, so no reloading, and full spare ammo), with the picked laugh going on. A tap
+opens the cheat menu under it, whether the main cheat is on or not: Noclip (fly through walls),
+Notarget (enemies ignore you), Slow motion (half speed), Low gravity (a quarter). A tap on a row
+switches it (gold while on) and the menu stays open; a touch off it closes it and does nothing
+else; the game holds still while it's open. The switches are separate from the main cheat, all
+end at each new level, on loading a game, and when CHEAT is hidden from the tray. Single player
+only. No status labels, no reminder toasts, and no cheat jobs on control buttons (JUMP's FLY and
+its double tap are gone). The original plan follows.
 
 - The tray's CHEAT switch shows the CHEAT button (remembered). Holding CHEAT 0.5 s toggles the cheat
   (grey = off, gold = on); a tap does nothing. Typing `sithewok` in the console also toggles it. The

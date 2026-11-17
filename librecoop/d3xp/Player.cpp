@@ -39,6 +39,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "Player.h"
 #ifdef D3_IOS
 #include "sys/ios/ios_game.h"
+#include "sys/ios/ios_touch.h"
 #endif
 #include "Camera.h"
 #include "Fx.h"
@@ -8164,9 +8165,9 @@ void idPlayer::Think( void ) {
 	if ( entityNumber == gameLocal.localClientNum ) {
 		IOS_GameReport( objectiveSystemOpen, gameLocal.inCinematic );
 
-		// the cheat button: god mode, every weapon and its ammo, and the
-		// monsters taking no notice, all on or off at once (put on again for
-		// the player of each new level or loaded game); FLY: noclip
+		// the cheat button, held: god mode, every weapon and endless ammo,
+		// on or off at once (put on again for the player of each new level
+		// or loaded game)
 		static int cheatSerial = -1;
 		static int cheatSpawnId = -1;
 		int serial;
@@ -8178,18 +8179,22 @@ void idPlayer::Think( void ) {
 			cheatSpawnId = spawnId;
 			if ( apply ) {
 				godmode = cheatWanted != 0;
-				fl.notarget = cheatWanted != 0;
 				if ( cheatWanted ) {
 					cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "give all\n" );
-				} else {
-					noclip = false;
 				}
 			}
 		}
-		if ( IOS_TakeFly() && godmode && !gameLocal.isMultiplayer ) {
-			noclip = !noclip;
+		// its menu's noclip and notarget, exactly as wanted, each time they're
+		// switched (and off for each new level or loaded game), apart from
+		// the main cheat
+		static int extrasSerial = -1;
+		int extras = IOS_CheatExtrasWanted( &serial );
+		if ( !gameLocal.isMultiplayer && serial != extrasSerial ) {
+			extrasSerial = serial;
+			noclip = ( extras & IOSTOUCH_CHEAT_NOCLIP ) != 0;
+			fl.notarget = ( extras & IOSTOUCH_CHEAT_NOTARGET ) != 0;
 		}
-		IOS_CheatReport( godmode, noclip );
+		IOS_CheatReport( godmode );
 		IOS_ViewReport( firstPersonViewOrigin.ToFloatPtr(), viewAngles.ToFloatPtr() );
 
 		// a tap puts away the tip or the objective showing

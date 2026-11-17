@@ -107,9 +107,20 @@ int		IOS_GetWeapons( iosTouchWeapon_t *out, int max, int *current );	// the weap
 void	IOS_PickWeapon( int slot );			// switch to it
 void	IOS_HoldGame( int hold );			// the game holds still while the wheel is open
 void	IOS_Dismiss( void );				// a tap: the tip or objective showing goes away
-void	IOS_SetCheat( int on );				// the cheat button: cheat mode on or off
-void	IOS_ToggleFly( void );				// FLY (noclip), in cheat mode
-void	IOS_GetCheats( int *on, int *flying );	// as the game has them now
+void	IOS_SetCheat( int on );				// CHEAT held: the main cheat (god mode, every weapon, endless ammo) on or off
+int		IOS_CheatOn( void );				// the main cheat, as the game has it now
+// CHEAT tapped: its menu's switches, each exactly on or off (single player;
+// all end at a new level, a loaded game, and with CHEAT hidden)
+enum {
+	IOSTOUCH_CHEAT_NOCLIP	= 1 << 0,	// fly through walls
+	IOSTOUCH_CHEAT_NOTARGET	= 1 << 1,	// enemies ignore the player
+	IOSTOUCH_CHEAT_SLOWMO	= 1 << 2,	// half speed
+	IOSTOUCH_CHEAT_LOWGRAV	= 1 << 3,	// a quarter of the gravity
+};
+void	IOS_SetCheatExtra( int bit, int on );
+int		IOS_CheatExtras( void );			// the switches on (IOSTOUCH_CHEAT_*)
+void	IOS_CheatExtrasOff( void );
+void	IOS_OpenSaveMenu( int save );		// SAVE or LOAD tapped: DOOM 3's own Save Game (1) or Load Game (0) page
 void	IOS_TakePhoto( int selfie );		// the camera: a photo, or a selfie (third person, from the front)
 void	IOS_StartFreeze( void );			// Action Freeze: the world stops, a free camera to look round it
 void	IOS_EndFreeze( void );

@@ -9,10 +9,15 @@
  *   stamina drains exactly as on PC). With Always Run on (MENU's tray) the
  *   marker hides and the stick runs. A drag anywhere else looks round.
  * - FIRE, with CROUCH, RELOAD and JUMP on an arc round it and LIGHT (the
- *   flashlight) beside JUMP; drags starting on those look round too.
- * - The top row: NEXT WPN and PDA on the left; QUICK SAVE, QUICK LOAD and
- *   MENU on the right. QUICK SAVE and QUICK LOAD only act after being held
- *   IOSTOUCH_QUICKSAVE_HOLD, a ring filling round them (sliding off cancels).
+ *   flashlight) beside JUMP; drags starting on those look round too. The
+ *   cluster sits as far right as it can: FIRE's edge IOSTOUCH_FIRE_EDGE from
+ *   the screen's edge, but no button level with the Dynamic Island (the
+ *   screen's middle band) in the safe area.
+ * - The top row: NEXT WPN and PDA on the left; SAVE, LOAD and MENU on the
+ *   right. SAVE and LOAD tapped open DOOM 3's own Save Game or Load Game
+ *   page (in a network game, a note that they can't); held
+ *   IOSTOUCH_QUICKSAVE_HOLD, a ring filling round them, they quick save or
+ *   quick load (sliding off cancels; both held, SAVE wins).
  * - NEXT WPN: a tap is the next weapon; slid, or held still, it opens the
  *   weapon wheel (as the Jedi Knight port's), the game holding still.
  * - In the middle of the top row, CAMERA and CHEAT (as the Jedi Knight
@@ -22,20 +27,28 @@
  *   Action Freeze (the world stops; the stick, a drag and JUMP and CROUCH
  *   fly a free camera round it, CAMERA takes photos, X goes back); slid up,
  *   the cinematic burst (photos sweeping round the player in a stopped
- *   moment). All go to Photos. CHEAT, its pentagram in a ring, held IOSTOUCH_CHEAT_HOLD:
- *   cheat mode on or off (god mode, every weapon and its ammo, the monsters
- *   taking no notice), red while on. In cheat mode JUMP held still
- *   IOSTOUCH_FLY_HOLD is FLY (noclip; JUMP rises then, and two quick taps on
- *   it stop flying), and MENU's tray has LEVEL: a list of the game's levels.
+ *   moment). All go to Photos. CHEAT, a pentagram filling its round:
+ *   held IOSTOUCH_CHEAT_HOLD (a ring), the main cheat on or off (god mode,
+ *   every weapon, endless ammo: full magazines, never a reload), red while
+ *   on, with its laugh going on; MENU's tray has LEVEL then, a list of the
+ *   game's levels. Tapped, the cheat menu under it, whether the main cheat
+ *   is on or not: Noclip, Notarget, Slow motion, Low gravity, each a tap to
+ *   switch (gold while on), the menu staying open; a touch off it closes it
+ *   and does nothing else; the game holds still meanwhile. The switches are
+ *   apart from the main cheat, and all end at each new level, on loading a
+ *   game, and with CHEAT hidden. No control button does a cheat's job.
  * - MENU: a tap opens the game's menu; held IOSTOUCH_MENU_HOLD it opens its
  *   tray: GYRO (a tap switches it off or back on; held, its MODE and SENS),
  *   RUN (the run marker's double chevron; lit, Always Run), LOOK (the look
  *   speed: a tap the next of IOSTOUCH_LOOK_STEPS; held, the default, 1x, as
- *   the Half-Life port's SENS), FPS, CHEAT (CHEAT shown or not: shown,
- *   cheat mode goes on; held, the laugh it makes going on, picked from
- *   DOOM 3's), LEVEL (in cheat mode) and the keyboard (the console). Under
+ *   the Half-Life port's SENS), OPACITY (a tap its slider under the tray,
+ *   every control but the tray at that strength, IOSTOUCH_OPACITY_MIN at the
+ *   least, in 5% steps; held, back to full), FPS, CHEAT (CHEAT shown or not:
+ *   shown, the main cheat goes on; hidden, everything off; held, the laugh
+ *   it makes going on, picked from DOOM 3's), LEVEL (with the main cheat
+ *   on) and the keyboard (the console). Under
  *   the tray, small and dim, the build stamp ("build 80 · Nov 9"): only text, a
- *   touch there is a touch off the tray. Cheat mode is off as the app
+ *   touch there is a touch off the tray. The cheat is off as the app
  *   starts, CHEAT shown greyed if it's switched on.
  * - Gyro aiming, OFF unless switched on: TOUCH aims while a thumb is down on
  *   the stick, the look area or a button that looks; ALWAYS aims always.
@@ -51,6 +64,7 @@
  *   Tailscale app on each phone), this phone's own addresses shown. Over a
  *   game in play, an X where MENU is, back to the game.
  * - In a multiplayer game PDA is SCORES (held), and CHEAT isn't there.
+ *   (Cheats are single player only.)
  * - Over the console: the on-screen keyboard (its own, typing straight into
  *   the console) and buttons to hide and show it and to close the console;
  *   elsewhere a finger is the mouse, as in the menus.
@@ -123,23 +137,30 @@ static const float iosTouch_aLookSteps[] = { 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0
 // The top row's buttons, IOSTOUCH_TRAY_STEP apart (as is MENU's tray)
 #define IOSTOUCH_TOP_R 22.0
 #define IOSTOUCH_TRAY_STEP 50.0
-// QUICK SAVE and QUICK LOAD must be held this long, so a stray tap can't
-// save over the quick save or throw away progress
+// SAVE and LOAD: a tap opens DOOM 3's own Save Game or Load Game page;
+// held this long (a ring filling round them) they quick save or quick load,
+// so a stray tap can't save over the quick save or throw away progress
 #define IOSTOUCH_QUICKSAVE_HOLD 0.3
 // MENU held this long opens its tray (and GYRO in it, its options)
 #define IOSTOUCH_MENU_HOLD 0.45
 // CAMERA held still this long is the selfie; CHEAT held this long switches
-// cheat mode (a tap does nothing, so it can't be hit by chance)
+// the main cheat (a tap opens the cheat menu)
 #define IOSTOUCH_SELFIE_HOLD 0.5
 #define IOSTOUCH_CHEAT_HOLD 0.5
-// FLY, in cheat mode: JUMP held this long and still (moved less than
-// IOSTOUCH_FLY_STILL; a drag on it looks round) starts flying. While flying,
-// holding JUMP rises, so two quick taps (each shorter than IOSTOUCH_FLY_TAP,
-// the second down within IOSTOUCH_FLY_DOUBLE of the first's lift) stop it.
-#define IOSTOUCH_FLY_HOLD 0.5
-#define IOSTOUCH_FLY_TAP 0.25
-#define IOSTOUCH_FLY_DOUBLE 0.35
-#define IOSTOUCH_FLY_STILL 10.0
+// The cheat menu (CHEAT tapped): this wide, its rows this tall, under CHEAT
+#define IOSTOUCH_CHEAT_MENU_W 260.0
+#define IOSTOUCH_CHEAT_ROW_H 46.0
+#define IOSTOUCH_CHEAT_MENU_TOP 38.0
+// OPACITY (MENU's tray): every control but the tray at this strength, never
+// under IOSTOUCH_OPACITY_MIN, so they can always be found; in 5% steps
+#define IOSTOUCH_OPACITY_MIN 0.2
+#define IOSTOUCH_OPACITY_DEFAULTS_KEY @"iosTouchOpacity"
+// FIRE's cluster as far right as the screen lets it: FIRE's outer edge this
+// far from the screen's right edge, into the safe area there -- but no
+// button in the screen's middle band (the Dynamic Island's, in landscape:
+// this far above and below the middle) inside the safe area
+#define IOSTOUCH_FIRE_EDGE 16.0
+#define IOSTOUCH_ISLAND_BAND 70.0
 // CAMERA slid sideways IOSTOUCH_WHEEL_OPEN_SLIDE: a burst, a photo every
 // IOSTOUCH_BURST_GAP while held, IOSTOUCH_BURST_MAX at most; slid mostly down
 // IOSTOUCH_FREEZE_SWIPE (further, so not by chance): Action Freeze; up as
@@ -149,8 +170,10 @@ static const float iosTouch_aLookSteps[] = { 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0
 #define IOSTOUCH_FREEZE_SWIPE 40.0
 // CAMERA and CHEAT sit in the middle of the top row, this far apart
 #define IOSTOUCH_MID_STEP 100.0
-// The cheat's red (its pentagram and edge while on)
+// The cheat's red (its pentagram and edge while on), and the gold of its
+// menu's switches that are on
 #define IOSTOUCH_CHEAT_RED(a) [UIColor colorWithRed:0.9 green:0.32 blue:0.28 alpha:(a)]
+#define IOSTOUCH_CHEAT_GOLD(a) [UIColor colorWithRed:1.0 green:0.85 blue:0.3 alpha:(a)]
 // Gyro aiming (iosTouch_GyroSample): CoreMotion's device motion
 // IOSTOUCH_GYRO_HZ times a second. Turning is measured about the way up, so
 // it works however far back the phone is tipped; tilting is about the
@@ -188,7 +211,7 @@ enum {
 	BTN_FIRE = 0, BTN_JUMP, BTN_CROUCH, BTN_RELOAD, BTN_LIGHT,
 	BTN_NEXTWPN, BTN_PDA, BTN_QSAVE, BTN_QLOAD, BTN_MENU, BTN_CAMERA, BTN_CHEAT,
 	// MENU's tray, and GYRO's options in a second row under it
-	BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_LOOK, BTN_TRAY_FPS, BTN_TRAY_KEYS, BTN_TRAY_CHEAT, BTN_TRAY_LEVEL,
+	BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_LOOK, BTN_TRAY_OPACITY, BTN_TRAY_FPS, BTN_TRAY_KEYS, BTN_TRAY_CHEAT, BTN_TRAY_LEVEL,
 	BTN_OPT_MODE, BTN_OPT_SENS,
 	NUM_BUTTONS
 };
@@ -198,12 +221,12 @@ enum {
 typedef enum {
 	KIND_HOLD,		// held down for as long as it's touched (FIRE, JUMP, CROUCH)
 	KIND_TAP,		// acts as it's touched
-	KIND_HOLDTAP,	// acts once held IOSTOUCH_QUICKSAVE_HOLD (QUICK SAVE, QUICK LOAD)
+	KIND_HOLDTAP,	// a tap one thing, held IOSTOUCH_QUICKSAVE_HOLD another (SAVE, LOAD)
 	KIND_MENU,		// a tap the menu, held the tray
 	KIND_TRAY,		// in MENU's tray
 	KIND_WHEEL,		// a tap acts; slid or held, opens the weapon wheel (NEXT WPN)
 	KIND_CAMERA,	// a tap a photo, held a selfie
-	KIND_CHEAT,		// held: cheat mode on or off
+	KIND_CHEAT,		// held: the main cheat on or off; a tap its menu
 } iosTouchKind_t;
 
 typedef struct {
@@ -221,14 +244,15 @@ static const iosTouchButton_t iosTouch_aButtons[NUM_BUTTONS] = {
 	{ "LIGHT",		KIND_TAP,		28.0,					1 },
 	{ "NEXT\nWPN",	KIND_WHEEL,		IOSTOUCH_TOP_R,			0 },
 	{ "PDA",		KIND_TAP,		IOSTOUCH_TOP_R,			0 },
-	{ "QUICK\nSAVE", KIND_HOLDTAP,	IOSTOUCH_TOP_R,			0 },
-	{ "QUICK\nLOAD", KIND_HOLDTAP,	IOSTOUCH_TOP_R,			0 },
+	{ "SAVE",		KIND_HOLDTAP,	IOSTOUCH_TOP_R,			0 },
+	{ "LOAD",		KIND_HOLDTAP,	IOSTOUCH_TOP_R,			0 },
 	{ "MENU",		KIND_MENU,		IOSTOUCH_TOP_R,			0 },
 	{ "",			KIND_CAMERA,	IOSTOUCH_TOP_R,			0 },	// (the camera symbol)
 	{ "",			KIND_CHEAT,		IOSTOUCH_TOP_R,			0 },	// (the pentagram)
 	{ "GYRO",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "RUN",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "LOOK",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (the look speed)
+	{ "OPACITY",	KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (the controls' strength)
 	{ "FPS",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },
 	{ "",			KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (the keyboard symbol)
 	{ "CHEAT",		KIND_TRAY,		IOSTOUCH_TOP_R,			0 },	// (CHEAT shown or not)
@@ -247,7 +271,7 @@ typedef struct {
 	CGPoint			start, last;
 	CFTimeInterval	startTime;
 	int				bInside;		// still on its button
-	int				bDone;			// a hold already acted (QUICK SAVE), or MENU opened its tray
+	int				bDone;			// a hold already acted (SAVE), or MENU opened its tray
 	int				bLooking;		// a button's touch dragged into looking
 	// on the open wheel
 	int				bWheelOpener;	// NEXT WPN's touch that opened it
@@ -281,12 +305,14 @@ static int iosTouch_mode = IOSTOUCH_MODE_HIDDEN;
 static int iosTouch_bTrayOpen;
 static int iosTouch_bOptsOpen;
 
-// CHEAT shown (the tray's switch); the cheats, as the game has them (read
-// every frame)
+// CHEAT shown (the tray's switch); the main cheat, as the game has it (read
+// every frame); its menu open
 static int iosTouch_bShowCheat;
 static int iosTouch_bCheatOn;
-static int iosTouch_bFlying;
-static CFTimeInterval iosTouch_jumpTapUp = -1.0;	// a quick tap on JUMP lifted then, while flying
+static int iosTouch_bCheatMenuOpen;
+// OPACITY: the controls' strength (the tray aside); its slider out
+static CGFloat iosTouch_opacity = 1.0;
+static int iosTouch_bOpacityOpen;
 // Action Freeze (or the cinematic burst) on, as last read
 static int iosTouch_bFrozen;
 // a multiplayer game, as last read
@@ -638,7 +664,7 @@ static void iosTouch_GyroUpdate(int bShown, UIView* v)
 
 	int bOk = iosTouch_bGyroRunning
 			  && (iosTouch_gyroMode == IOSTOUCH_GYRO_ALWAYS || iosTouch_GyroThumbDown())
-			  && !iosTouch_bTrayOpen && !iosTouch_bWheelOpen
+			  && !iosTouch_bTrayOpen && !iosTouch_bWheelOpen && !iosTouch_bCheatMenuOpen
 			  && now - iosTouch_gyroTurnedRound >= IOSTOUCH_GYRO_TURN_HOLD;
 	int bUse = bOk && iosTouch_bGyroWasOk && now - iosTouch_gyroLastFrame <= IOSTOUCH_GYRO_MAX_FRAME;
 	iosTouch_bGyroWasOk = bOk;
@@ -746,7 +772,7 @@ static NSString* iosTouch_VersionText(void)
 
 @implementation IOSTouchOverlay {
 	UILabel*			aButtonViews[NUM_BUTTONS];
-	CAShapeLayer*		aHoldRings[NUM_BUTTONS];	// QUICK SAVE, QUICK LOAD, MENU, GYRO: filling while held
+	CAShapeLayer*		aHoldRings[NUM_BUTTONS];	// SAVE, LOAD, MENU, GYRO, CHEAT...: filling while held
 	CGPoint				aCentres[NUM_BUTTONS];
 	CAShapeLayer*		stickRing;
 	CAShapeLayer*		stickKnob;
@@ -764,7 +790,15 @@ static NSString* iosTouch_VersionText(void)
 	UIButton*			joinButton;			// over the multiplayer games' list: JOIN, a game by its address
 	UIButton*			resumeButton;		// over a game in play: back to it
 	intptr_t			menuTextField;		// the menus' text field the keyboard came up for (0: none)
-	CAShapeLayer*		cheatEmblem;	// CHEAT's pentagram in a ring
+	CAShapeLayer*		cheatEmblem;	// CHEAT's pentagram, its points on the button's edge
+	// the cheat menu (CHEAT tapped): its rows, and their names and ON / OFF
+	UIView*				cheatPanel;
+	UIButton*			aCheatRows[4];
+	UILabel*			aCheatNames[4];
+	UILabel*			aCheatStates[4];
+	// OPACITY's slider, under the tray
+	UIView*				opacityPanel;
+	UISlider*			opacitySlider;
 	CAShapeLayer*		runTrayChevrons;	// the tray's RUN: the run marker's double chevron
 	UIView*				flash;			// the camera's flash
 	UILabel*			toast;			// "Saved to Photos"
@@ -840,7 +874,7 @@ static NSString* iosTouch_VersionText(void)
 		aButtonViews[i] = l;
 
 		if (b->kind == KIND_HOLDTAP || b->kind == KIND_MENU || b->kind == KIND_WHEEL || b->kind == KIND_CAMERA
-			|| b->kind == KIND_CHEAT || i == BTN_TRAY_GYRO || i == BTN_TRAY_CHEAT || i == BTN_TRAY_LOOK || i == BTN_JUMP) {
+			|| b->kind == KIND_CHEAT || i == BTN_TRAY_GYRO || i == BTN_TRAY_CHEAT || i == BTN_TRAY_LOOK || i == BTN_TRAY_OPACITY) {
 			CAShapeLayer* ring = [CAShapeLayer layer];
 			ring.frame = CGRectMake(0, 0, 2 * b->radius, 2 * b->radius);
 			ring.path = [UIBezierPath bezierPathWithArcCenter:CGPointMake(b->radius, b->radius) radius:b->radius - 2.0
@@ -873,14 +907,15 @@ static NSString* iosTouch_VersionText(void)
 	} else {
 		aButtonViews[BTN_CAMERA].text = @"CAM";
 	}
-	// CHEAT shows a pentagram in a ring, point down, under its hold's ring
+	// CHEAT shows a pentagram, point down, its five points on the button's
+	// own round edge (the middle of its border), under its hold's ring
 	{
 		CGFloat r = iosTouch_aButtons[BTN_CHEAT].radius;
 		cheatEmblem = [CAShapeLayer layer];
 		cheatEmblem.frame = CGRectMake(0, 0, 2 * r, 2 * r);
 		CGPoint c = CGPointMake(r, r);
-		CGFloat pr = r * 0.66;
-		UIBezierPath* path = [UIBezierPath bezierPathWithArcCenter:c radius:pr startAngle:0 endAngle:2 * M_PI clockwise:YES];
+		CGFloat pr = r - 0.75;
+		UIBezierPath* path = [UIBezierPath bezierPath];
 		for (int k = 0; k <= 5; k++) {
 			// every second point of five round the ring, from the bottom one
 			CGFloat a = M_PI_2 + (k * 2 % 5) * 2.0 * M_PI / 5.0;
@@ -910,6 +945,9 @@ static NSString* iosTouch_VersionText(void)
 	}
 	// (cheat mode off as the app starts, whether CHEAT's shown or not)
 	iosTouch_bShowCheat = [[NSUserDefaults standardUserDefaults] boolForKey:IOSTOUCH_CHEAT_DEFAULTS_KEY];
+	if ([[NSUserDefaults standardUserDefaults] objectForKey:IOSTOUCH_OPACITY_DEFAULTS_KEY]) {
+		iosTouch_opacity = fmax(IOSTOUCH_OPACITY_MIN, fmin(1.0, [[NSUserDefaults standardUserDefaults] floatForKey:IOSTOUCH_OPACITY_DEFAULTS_KEY]));
+	}
 
 	// the stick, as the Jedi Knight port draws it: the ring, the line up to
 	// the run marker, the knob, and the marker with its double chevron on top
@@ -967,6 +1005,8 @@ static NSString* iosTouch_VersionText(void)
 	resumeButton = [self roundButton:@"xmark" action:@selector(resumeTapped)];
 	[self makeWheel];
 	[self makeLevelPanel];
+	[self makeCheatMenu];
+	[self makeOpacityPanel];
 
 	flash = [[UIView alloc] initWithFrame:self.bounds];
 	flash.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -991,6 +1031,7 @@ static NSString* iosTouch_VersionText(void)
 	}
 	iosTouch_GyroSetup();
 	[self refreshLabels];
+	[self setOpacity:iosTouch_opacity];
 	return self;
 }
 
@@ -1138,6 +1179,26 @@ static NSString* iosTouch_VersionText(void)
 	// LIGHT beside JUMP, further out between it and RELOAD
 	CGFloat la = 112.0 * M_PI / 180.0;
 	[self place:BTN_LIGHT at:CGPointMake(fire.x + 180.0 * cos(la), fire.y - 180.0 * sin(la))];
+	// then the whole cluster moved right, as it is: FIRE's outer edge
+	// IOSTOUCH_FIRE_EDGE from the screen's edge, into the safe area there, as
+	// far as the buttons level with the Dynamic Island (the screen's middle
+	// band) can go without going into it
+	{
+		const int aCluster[5] = { BTN_FIRE, BTN_CROUCH, BTN_RELOAD, BTN_JUMP, BTN_LIGHT };
+		CGFloat w = self.bounds.size.width, midY = self.bounds.size.height * 0.5;
+		CGFloat dx = w - IOSTOUCH_FIRE_EDGE - IOSTOUCH_FIRE_R - fire.x;
+		for (int k = 0; k < 5; k++) {
+			CGPoint c = aCentres[aCluster[k]];
+			CGFloat r = iosTouch_aButtons[aCluster[k]].radius;
+			if (fabs(c.y - midY) < IOSTOUCH_ISLAND_BAND + r) dx = fmin(dx, w - fmax(in.right, 0.0) - (c.x + r));
+		}
+		if (dx > 0.0) {
+			for (int k = 0; k < 5; k++) {
+				CGPoint c = aCentres[aCluster[k]];
+				[self place:aCluster[k] at:CGPointMake(c.x + dx, c.y)];
+			}
+		}
+	}
 
 	// the top row
 	CGFloat rowY = top + IOSTOUCH_TOP_R;
@@ -1154,7 +1215,7 @@ static NSString* iosTouch_VersionText(void)
 	// options a row under that, under GYRO
 	[self layoutTray];
 
-	// SKIP where FIRE is; the console's buttons where MENU and QUICK LOAD are
+	// SKIP where FIRE is; the console's buttons where MENU and LOAD are
 	skipLabel.frame = CGRectMake(right - 96.0, bottom - 2 * IOSTOUCH_TOP_R, 96.0, 2 * IOSTOUCH_TOP_R);
 	consoleCloseButton.center = aCentres[BTN_MENU];
 	consoleKeysButton.center = aCentres[BTN_QLOAD];
@@ -1174,7 +1235,7 @@ static int iosTouch_TrayHas(int b)
 
 - (void)layoutTray
 {
-	static const int aTray[] = { BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_LOOK, BTN_TRAY_FPS, BTN_TRAY_CHEAT, BTN_TRAY_LEVEL, BTN_TRAY_KEYS };
+	static const int aTray[] = { BTN_TRAY_GYRO, BTN_TRAY_RUN, BTN_TRAY_LOOK, BTN_TRAY_OPACITY, BTN_TRAY_FPS, BTN_TRAY_CHEAT, BTN_TRAY_LEVEL, BTN_TRAY_KEYS };
 	int n = 0;
 	for (int k = 0; k < IOSTOUCH_COUNT(aTray); k++) n += iosTouch_TrayHas(aTray[k]);
 	CGFloat trayY = aCentres[BTN_MENU].y + IOSTOUCH_TRAY_STEP;
@@ -1188,6 +1249,12 @@ static int iosTouch_TrayHas(int b)
 	[self place:BTN_OPT_MODE at:CGPointMake(aCentres[BTN_TRAY_GYRO].x, optY)];
 	[self place:BTN_OPT_SENS at:CGPointMake(aCentres[BTN_TRAY_GYRO].x + IOSTOUCH_TRAY_STEP, optY)];
 	[self layoutTrayBacking];
+	// OPACITY's slider under it, clear of the build stamp, kept on screen
+	CGFloat pw = opacityPanel.bounds.size.width, ph = opacityPanel.bounds.size.height;
+	UIEdgeInsets in = self.safeAreaInsets;
+	CGFloat cx = fmin(fmax(aCentres[BTN_TRAY_OPACITY].x, fmax(in.left, 0.0) + IOSTOUCH_MARGIN + pw * 0.5),
+					  self.bounds.size.width - fmax(in.right, 0.0) - IOSTOUCH_MARGIN - pw * 0.5);
+	opacityPanel.center = CGPointMake(cx, trayY + IOSTOUCH_TOP_R + 22.0 + ph * 0.5);
 }
 
 - (void)layoutTrayBacking
@@ -1221,6 +1288,8 @@ static int iosTouch_TrayHas(int b)
 	aButtonViews[BTN_TRAY_CHEAT].textColor = iosTouch_bShowCheat ? IOSTOUCH_CHEAT_RED(1.0) : [UIColor colorWithWhite:1.0 alpha:0.85];
 	aButtonViews[BTN_TRAY_FPS].text = IOS_CVarInteger("com_showFPS") ? @"FPS\nON" : @"FPS\nOFF";
 	aButtonViews[BTN_TRAY_LOOK].text = [NSString stringWithFormat:@"LOOK\n%gx", iosTouch_lookScale];
+	aButtonViews[BTN_TRAY_OPACITY].text = [NSString stringWithFormat:@"OPACITY\n%d%%", (int)lround(iosTouch_opacity * 100.0)];
+	aButtonViews[BTN_TRAY_OPACITY].backgroundColor = iosTouch_bOpacityOpen ? IOSTOUCH_BLUE(0.55) : [UIColor colorWithWhite:0.0 alpha:0.28];
 	aButtonViews[BTN_OPT_MODE].text = iosTouch_gyroLastMode == IOSTOUCH_GYRO_ALWAYS ? @"MODE\nALWAYS" : @"MODE\nTOUCH";
 	aButtonViews[BTN_OPT_SENS].text = [NSString stringWithFormat:@"SENS\n%.1fx", iosTouch_aGyroSens[iosTouch_gyroSens]];
 }
@@ -1228,7 +1297,12 @@ static int iosTouch_TrayHas(int b)
 - (void)setTrayOpen:(int)bOpen
 {
 	iosTouch_bTrayOpen = bOpen;
-	if (!bOpen) iosTouch_bOptsOpen = 0;
+	if (!bOpen) iosTouch_bOptsOpen = iosTouch_bOpacityOpen = 0;
+	opacityPanel.hidden = !bOpen || !iosTouch_bOpacityOpen;
+	if (!opacityPanel.hidden) {
+		opacitySlider.value = (float)iosTouch_opacity;
+		[self bringSubviewToFront:opacityPanel];
+	}
 	for (int i = BTN_FIRST_TRAY; i < NUM_BUTTONS; i++) {
 		aButtonViews[i].hidden = !bOpen || (i >= BTN_FIRST_OPT && !iosTouch_bOptsOpen) || !iosTouch_TrayHas(i);
 	}
@@ -1241,6 +1315,7 @@ static int iosTouch_TrayHas(int b)
 - (void)setOptsOpen:(int)bOpen
 {
 	iosTouch_bOptsOpen = bOpen;
+	if (bOpen) iosTouch_bOpacityOpen = 0;
 	[self setTrayOpen:1];
 }
 
@@ -1344,6 +1419,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 	[CATransaction setDisableActions:YES];
 	int bShow = iosTouch_StickHeld() && !iosTouch_bWheelOpen;
 	stickRing.hidden = stickKnob.hidden = !bShow;
+	stickRing.opacity = stickKnob.opacity = iosTouch_opacity;
 	int bMarker = bShow && iosTouch_runDist > 0.0 && !iosTouch_bAlwaysRun;
 	runLine.hidden = runMarker.hidden = runChevrons.hidden = !bMarker;
 	if (bShow) {
@@ -1368,7 +1444,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			runMarker.strokeColor = [UIColor colorWithWhite:1.0 alpha:(bLit ? 0.85 : 0.45)].CGColor;
 			runChevrons.path = iosTouch_RunChevrons(m).CGPath;
 			runChevrons.strokeColor = [UIColor colorWithWhite:1.0 alpha:(bLit ? 1.0 : 0.85)].CGColor;
-			runLine.opacity = runMarker.opacity = runChevrons.opacity = alpha;
+			runLine.opacity = runMarker.opacity = runChevrons.opacity = alpha * iosTouch_opacity;
 		}
 	}
 	[CATransaction commit];
@@ -1389,6 +1465,17 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 	if (!levelPanel.hidden) {
 		// (the list takes its own touches): one off it closes it
 		[self closeLevels];
+		return;
+	}
+	if (iosTouch_bCheatMenuOpen) {
+		// (its rows take their own touches): one off it closes it, and does
+		// nothing else; one on its title or edge does nothing
+		for (UITouch* t in touches) {
+			if (!CGRectContainsPoint(cheatPanel.frame, [t locationInView:self])) {
+				[self closeCheatMenu];
+				break;
+			}
+		}
 		return;
 	}
 	if (iosTouch_mode == IOSTOUCH_MODE_PDA) {
@@ -1418,6 +1505,11 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			// a finger on the open wheel points at the slice under it
 			s->role = ROLE_WHEEL;
 			s->wheelSlot = iosTouch_WheelSliceAt(p, -1);
+			continue;
+		}
+		if (!opacityPanel.hidden && CGRectContainsPoint(opacityPanel.frame, p)) {
+			// (on OPACITY's slider's glass, not the slider itself): nothing
+			s->role = ROLE_IGNORED;
 			continue;
 		}
 		int b = [self buttonAt:p];
@@ -1610,18 +1702,20 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		if (s->bInside && !s->bDone) IOS_TakePhoto(0);
 		return;
 	}
-	if (b == BTN_JUMP && iosTouch_bFlying && !iosTouch_bFrozen) {
-		// flying: two quick taps stop it
-		CFTimeInterval now = [NSProcessInfo processInfo].systemUptime;
-		if (now - s->startTime < IOSTOUCH_FLY_TAP) {
-			if (iosTouch_jumpTapUp >= 0.0 && s->startTime - iosTouch_jumpTapUp < IOSTOUCH_FLY_DOUBLE) {
-				IOS_ToggleFly();
-				[thump impactOccurred];
-				iosTouch_jumpTapUp = -1.0;
-			} else {
-				iosTouch_jumpTapUp = now;
-			}
+	if (b == BTN_QSAVE || b == BTN_QLOAD) {
+		// a tap (not held into the quick save or load): DOOM 3's own Save
+		// Game or Load Game page; not in a network game
+		if (!s->bInside || s->bDone) return;
+		if (iosTouch_bMultiplayer) {
+			[self showToast:b == BTN_QSAVE ? @"Saving isn't available in a network game" : @"Loading isn't available in a network game"];
+		} else {
+			IOS_OpenSaveMenu(b == BTN_QSAVE);
 		}
+		return;
+	}
+	if (b == BTN_CHEAT) {
+		// a tap (not held into the main cheat): its menu
+		if (s->bInside && !s->bDone) [self openCheatMenu];
 		return;
 	}
 	if (b == BTN_NEXTWPN) {
@@ -1642,7 +1736,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		return;
 	}
 	if (iosTouch_aButtons[b].kind == KIND_TRAY) {
-		if ((b == BTN_TRAY_GYRO || b == BTN_TRAY_CHEAT || b == BTN_TRAY_LOOK) && s->bDone) return;	// (held: its options, the laughs, or LOOK's default)
+		if ((b == BTN_TRAY_GYRO || b == BTN_TRAY_CHEAT || b == BTN_TRAY_LOOK || b == BTN_TRAY_OPACITY) && s->bDone) return;	// (held: its options, the laughs, LOOK's or OPACITY's default)
 		if (s->bInside) [self useTrayButton:b];
 	}
 }
@@ -1660,9 +1754,15 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		break;
 	case BTN_TRAY_CHEAT:
 		// CHEAT shown, and cheat mode on with it; hidden, cheat mode off
+		// (hidden, its menu's switches go off too: nothing stays on without
+		// the button to turn it off)
 		iosTouch_bShowCheat = !iosTouch_bShowCheat;
 		[[NSUserDefaults standardUserDefaults] setBool:iosTouch_bShowCheat forKey:IOSTOUCH_CHEAT_DEFAULTS_KEY];
 		IOS_SetCheat(iosTouch_bShowCheat);
+		if (!iosTouch_bShowCheat) {
+			[self closeCheatMenu];
+			IOS_CheatExtrasOff();
+		}
 		if (iosTouch_bShowCheat) {
 			[self cheatSwitchedOn];
 			if (![[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY])
@@ -1682,6 +1782,12 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		IOSTouch_SetLookScale(next);
 		break;
 	}
+	case BTN_TRAY_OPACITY:
+		// its slider, under the tray (GYRO's options put away)
+		iosTouch_bOpacityOpen = !iosTouch_bOpacityOpen;
+		if (iosTouch_bOpacityOpen) iosTouch_bOptsOpen = 0;
+		[self setTrayOpen:1];
+		break;
 	case BTN_TRAY_FPS:
 		IOS_Command(IOS_CVarInteger("com_showFPS") ? "com_showFPS 0" : "com_showFPS 1");
 		[self setTrayOpen:0];
@@ -1705,7 +1811,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 	[self refreshLabels];
 }
 
-// held buttons that act after a time: QUICK SAVE, QUICK LOAD, MENU, GYRO
+// held buttons that act after a time: SAVE, LOAD, MENU, GYRO, CHEAT...
 - (void)updateHolds
 {
 	CFTimeInterval now = [NSProcessInfo processInfo].systemUptime; // (the UITouch clock)
@@ -1724,23 +1830,19 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		if (!s->touch || s->role != ROLE_BUTTON || s->bDone) continue;
 		int b = s->button;
 		double hold = (iosTouch_aButtons[b].kind == KIND_HOLDTAP) ? IOSTOUCH_QUICKSAVE_HOLD
-					: (b == BTN_MENU || b == BTN_TRAY_GYRO || b == BTN_TRAY_CHEAT || b == BTN_TRAY_LOOK) ? IOSTOUCH_MENU_HOLD
+					: (b == BTN_MENU || b == BTN_TRAY_GYRO || b == BTN_TRAY_CHEAT || b == BTN_TRAY_LOOK || b == BTN_TRAY_OPACITY) ? IOSTOUCH_MENU_HOLD
 					: (b == BTN_NEXTWPN) ? IOSTOUCH_WHEEL_HOLD
 					: (b == BTN_CAMERA) ? IOSTOUCH_SELFIE_HOLD
-					: (b == BTN_CHEAT) ? IOSTOUCH_CHEAT_HOLD
-					: (b == BTN_JUMP && iosTouch_bCheatOn && !iosTouch_bFlying && !iosTouch_bFrozen) ? IOSTOUCH_FLY_HOLD : 0.0;
+					: (b == BTN_CHEAT) ? IOSTOUCH_CHEAT_HOLD : 0.0;
 		if (hold <= 0.0) continue;
 		if (!s->bInside) continue;	// slid off: cancelled
-		if (b == BTN_JUMP && hypot(s->last.x - s->start.x, s->last.y - s->start.y) >= IOSTOUCH_FLY_STILL) {
-			s->bDone = 1;	// (dragged: looking round, not flying)
-			continue;
-		}
 		double f = (now - s->startTime) / hold;
 		if (f < 1.0) {
 			aFill[b] = fmax(aFill[b], f);
 			continue;
 		}
 		s->bDone = 1;
+		if (b == BTN_QLOAD && [self saveHeldBut:s]) continue;	// (both held: SAVE wins)
 		switch (b) {
 		case BTN_QSAVE:	IOS_Command("savegame quick"); [thump impactOccurred]; break;
 		case BTN_QLOAD:	IOS_Command("loadgame quick"); [thump impactOccurred]; break;
@@ -1753,12 +1855,18 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 			if (!iosTouch_bCheatOn) [self cheatSwitchedOn];
 			else [thump impactOccurred];
 			break;
-		case BTN_JUMP: IOS_ToggleFly(); [thump impactOccurred]; break;	// in cheat mode: FLY
 		case BTN_TRAY_CHEAT: [self setTrayOpen:0]; [self openLaughs]; break;	// held: the laughs
 		case BTN_TRAY_LOOK:	// held: the default
 			IOSTouch_SetLookScale(1.0f);
 			[self refreshLabels];
 			[self showToast:@"Look sensitivity back to the default, 1x"];
+			[thump impactOccurred];
+			break;
+		case BTN_TRAY_OPACITY:	// held: full strength
+			[self setOpacity:1.0];
+			[[NSUserDefaults standardUserDefaults] setFloat:(float)iosTouch_opacity forKey:IOSTOUCH_OPACITY_DEFAULTS_KEY];
+			[self refreshLabels];
+			[self showToast:@"Controls back to full strength"];
 			[thump impactOccurred];
 			break;
 		}
@@ -1778,8 +1886,69 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 		if (iosTouch_aSlots[i].touch && iosTouch_aSlots[i].role == ROLE_BUTTON) aHeld[iosTouch_aSlots[i].button] = 1;
 	}
 	for (int b = 0; b < NUM_BUTTONS; b++) {
-		aButtonViews[b].alpha = aHeld[b] ? 1.0 : IOSTOUCH_IDLE_ALPHA;
+		aButtonViews[b].alpha = [self alphaFor:b held:aHeld[b]];
 	}
+}
+
+// a button's strength, idle or held: OPACITY's share of it, but the tray's
+- (CGFloat)alphaFor:(int)b held:(int)bHeld
+{
+	CGFloat a = bHeld ? 1.0 : IOSTOUCH_IDLE_ALPHA;
+	return b < BTN_FIRST_TRAY ? a * iosTouch_opacity : a;
+}
+
+// SAVE held too (by a touch still on it, other than s)
+- (int)saveHeldBut:(iosTouchSlot_t*)s
+{
+	for (int i = 0; i < IOSTOUCH_MAX_TOUCHES; i++) {
+		iosTouchSlot_t* o = &iosTouch_aSlots[i];
+		if (o != s && o->touch && o->role == ROLE_BUTTON && o->button == BTN_QSAVE && o->bInside) return 1;
+	}
+	return 0;
+}
+
+// OPACITY: every control at this strength (the tray aside)
+- (void)setOpacity:(CGFloat)k
+{
+	iosTouch_opacity = fmax(IOSTOUCH_OPACITY_MIN, fmin(1.0, k));
+	opacitySlider.value = (float)iosTouch_opacity;
+	[self refreshAlphas];
+	[self drawStick];
+}
+
+- (void)opacitySlid:(UISlider*)slider
+{
+	// in whole 5% steps
+	CGFloat k = round(slider.value * 20.0) / 20.0;
+	if (fabs(k - iosTouch_opacity) > 0.001) [tick selectionChanged];
+	[self setOpacity:k];
+	[self refreshLabels];
+}
+
+- (void)opacityLifted:(UISlider*)slider
+{
+	slider.value = (float)iosTouch_opacity;
+	[[NSUserDefaults standardUserDefaults] setFloat:(float)iosTouch_opacity forKey:IOSTOUCH_OPACITY_DEFAULTS_KEY];
+}
+
+- (void)makeOpacityPanel
+{
+	opacityPanel = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 240, 44)];
+	opacityPanel.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.55];
+	opacityPanel.layer.cornerRadius = 22.0;
+	opacityPanel.layer.borderWidth = 1.0;
+	opacityPanel.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.3].CGColor;
+	opacityPanel.hidden = YES;
+	opacitySlider = [[UISlider alloc] initWithFrame:CGRectMake(16, 7, 208, 30)];
+	opacitySlider.minimumValue = IOSTOUCH_OPACITY_MIN;
+	opacitySlider.maximumValue = 1.0;
+	opacitySlider.value = (float)iosTouch_opacity;
+	opacitySlider.minimumTrackTintColor = IOSTOUCH_BLUE(0.95);
+	[opacitySlider addTarget:self action:@selector(opacitySlid:) forControlEvents:UIControlEventValueChanged];
+	[opacitySlider addTarget:self action:@selector(opacityLifted:)
+			forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
+	[opacityPanel addSubview:opacitySlider];
+	[self addSubview:opacityPanel];
 }
 
 // every touch let go of, the stick and the tray put away
@@ -1787,6 +1956,7 @@ static int iosTouch_OnRunMarker(CGPoint off, int bRunning)
 {
 	[self closeWheelSelecting:-1];
 	[self closeLevels];
+	[self closeCheatMenu];
 	iosTouch_guiState = IOSTOUCH_GUI_NONE;
 	iosTouch_bGuiDown = 0;
 	memset(iosTouch_aSlots, 0, sizeof(iosTouch_aSlots));
@@ -2258,6 +2428,7 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	}
 	if (IOS_Multiplayer() != iosTouch_bMultiplayer) {
 		iosTouch_bMultiplayer = IOS_Multiplayer();
+		[self closeCheatMenu];	// (single player only)
 		aButtonViews[BTN_PDA].text = iosTouch_bMultiplayer ? @"SCORES" : @"PDA";
 		[self showButtons];
 	}
@@ -2267,11 +2438,9 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 		[self showButtons];
 		if (iosTouch_bFrozen) [self showToast:@"Action Freeze: CAMERA takes photos"];
 	}
-	int bCheat, bFlying;
-	IOS_GetCheats(&bCheat, &bFlying);
-	if (bCheat != iosTouch_bCheatOn || bFlying != iosTouch_bFlying) {
+	int bCheat = IOS_CheatOn();
+	if (bCheat != iosTouch_bCheatOn) {
 		iosTouch_bCheatOn = bCheat;
-		iosTouch_bFlying = bFlying;
 		[self refreshCheatLooks];
 	}
 	iosTouch_GyroUpdate(mode == IOSTOUCH_MODE_GAMEPLAY, self);
@@ -2289,7 +2458,7 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	freezeExitButton.hidden = !bPlay || !iosTouch_bFrozen;
 }
 
-// Cheat mode switched on (the tray's CHEAT, or CHEAT held): its sound
+// The main cheat switched on (the tray's CHEAT, or CHEAT held): its sound
 - (void)cheatSwitchedOn
 {
 	[thump impactOccurred];
@@ -2297,26 +2466,128 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 	IOS_PlayCheatSound([[NSUserDefaults standardUserDefaults] stringForKey:IOSTOUCH_CHEATSOUND_DEFAULTS_KEY].UTF8String);
 }
 
-// CHEAT red while cheat mode is on; JUMP says FLY under it then (lit while
-// flying); the tray's LEVEL only then
+// CHEAT red while the main cheat is on (greyed off); the tray's LEVEL only then
 - (void)refreshCheatLooks
 {
-	// (off: greyed)
 	cheatEmblem.strokeColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_RED(0.95).CGColor : [UIColor colorWithWhite:0.6 alpha:0.45].CGColor;
 	aButtonViews[BTN_CHEAT].layer.borderColor = iosTouch_bCheatOn ? IOSTOUCH_CHEAT_RED(0.8).CGColor : [UIColor colorWithWhite:0.6 alpha:0.35].CGColor;
-	UILabel* jump = aButtonViews[BTN_JUMP];
-	if (iosTouch_bCheatOn) {
-		NSMutableAttributedString* t = [[NSMutableAttributedString alloc] initWithString:@"JUMP\n"
-			attributes:@{ NSFontAttributeName: jump.font, NSForegroundColorAttributeName: jump.textColor }];
-		[t appendAttributedString:[[NSAttributedString alloc] initWithString:@"FLY"
-			attributes:@{ NSFontAttributeName: [UIFont systemFontOfSize:8.5 weight:UIFontWeightHeavy],
-						  NSForegroundColorAttributeName: iosTouch_bFlying ? IOSTOUCH_BLUE(1.0) : [UIColor colorWithWhite:1.0 alpha:0.6] }]];
-		jump.attributedText = t;
-	} else {
-		jump.text = @"JUMP";
-	}
 	if (iosTouch_bTrayOpen) [self setTrayOpen:1];
 	else [self layoutTray];
+}
+
+// ------------------------------------------------ the cheat menu
+
+// CHEAT tapped: a small panel under it, a row for each of its switches
+// (independent of the main cheat): its name, a line on what it does, and ON
+// or OFF, gold while on. A tap on a row switches it, the menu staying open;
+// a touch off it closes it and does nothing else. The game holds still
+// while it's open. Single player only. (The rows' labels are kept here,
+// not found by their tags: viewWithTag: looks at the view itself first.)
+static const char* const iosTouch_aCheatNames[4] = { "Noclip", "Notarget", "Slow motion", "Low gravity" };
+static const char* const iosTouch_aCheatAbout[4] = { "Fly through walls", "Enemies ignore you", "The game at half speed", "A quarter of the gravity" };
+static const int iosTouch_aCheatBits[4] = { IOSTOUCH_CHEAT_NOCLIP, IOSTOUCH_CHEAT_NOTARGET, IOSTOUCH_CHEAT_SLOWMO, IOSTOUCH_CHEAT_LOWGRAV };
+
+- (void)makeCheatMenu
+{
+	cheatPanel = [[UIView alloc] initWithFrame:CGRectMake(0, 0, IOSTOUCH_CHEAT_MENU_W, IOSTOUCH_CHEAT_MENU_TOP + 4 * IOSTOUCH_CHEAT_ROW_H + 6.0)];
+	cheatPanel.backgroundColor = UIColor.clearColor;
+	cheatPanel.layer.cornerRadius = 14.0;
+	cheatPanel.layer.borderWidth = 1.5;
+	cheatPanel.layer.borderColor = IOSTOUCH_CHEAT_RED(0.8).CGColor;
+	cheatPanel.clipsToBounds = YES;
+	cheatPanel.hidden = YES;
+	UIVisualEffectView* glass = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+	glass.frame = cheatPanel.bounds;
+	glass.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	glass.userInteractionEnabled = NO;
+	[cheatPanel addSubview:glass];
+	UIView* tint = [[UIView alloc] initWithFrame:cheatPanel.bounds];
+	tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	tint.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.45];
+	tint.userInteractionEnabled = NO;
+	[cheatPanel addSubview:tint];
+	UILabel* title = [[UILabel alloc] initWithFrame:CGRectMake(16, 10, IOSTOUCH_CHEAT_MENU_W - 32, 22)];
+	title.text = @"CHEATS";
+	title.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
+	title.textColor = IOSTOUCH_CHEAT_RED(1.0);
+	title.userInteractionEnabled = NO;
+	[cheatPanel addSubview:title];
+	for (int i = 0; i < 4; i++) {
+		UIButton* row = [UIButton buttonWithType:UIButtonTypeCustom];
+		row.frame = CGRectMake(0, IOSTOUCH_CHEAT_MENU_TOP + i * IOSTOUCH_CHEAT_ROW_H, IOSTOUCH_CHEAT_MENU_W, IOSTOUCH_CHEAT_ROW_H);
+		row.tag = 101 + i;
+		[row addTarget:self action:@selector(cheatRowTapped:) forControlEvents:UIControlEventTouchUpInside];
+		UILabel* name = [[UILabel alloc] initWithFrame:CGRectMake(16, 6, IOSTOUCH_CHEAT_MENU_W - 84, 20)];
+		name.text = [NSString stringWithUTF8String:iosTouch_aCheatNames[i]];
+		name.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
+		UILabel* about = [[UILabel alloc] initWithFrame:CGRectMake(16, 26, IOSTOUCH_CHEAT_MENU_W - 84, 14)];
+		about.text = [NSString stringWithUTF8String:iosTouch_aCheatAbout[i]];
+		about.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
+		about.textColor = [UIColor colorWithWhite:1.0 alpha:0.5];
+		UILabel* state = [[UILabel alloc] initWithFrame:CGRectMake(IOSTOUCH_CHEAT_MENU_W - 64, 0, 48, IOSTOUCH_CHEAT_ROW_H)];
+		state.font = [UIFont systemFontOfSize:13 weight:UIFontWeightHeavy];
+		state.textAlignment = NSTextAlignmentRight;
+		for (UILabel* l in @[ name, about, state ]) {
+			l.userInteractionEnabled = NO;
+			[row addSubview:l];
+		}
+		aCheatRows[i] = row;
+		aCheatNames[i] = name;
+		aCheatStates[i] = state;
+		[cheatPanel addSubview:row];
+	}
+	[self addSubview:cheatPanel];
+}
+
+- (void)refreshCheatMenu
+{
+	int on = IOS_CheatExtras();
+	for (int i = 0; i < 4; i++) {
+		int bOn = (on & iosTouch_aCheatBits[i]) != 0;
+		aCheatRows[i].backgroundColor = bOn ? IOSTOUCH_CHEAT_GOLD(0.22) : UIColor.clearColor;
+		aCheatNames[i].textColor = bOn ? IOSTOUCH_CHEAT_GOLD(1.0) : [UIColor colorWithWhite:1.0 alpha:0.92];
+		aCheatStates[i].text = bOn ? @"ON" : @"OFF";
+		aCheatStates[i].textColor = bOn ? IOSTOUCH_CHEAT_GOLD(1.0) : [UIColor colorWithWhite:1.0 alpha:0.4];
+	}
+}
+
+- (void)cheatRowTapped:(UIButton*)row
+{
+	int i = (int)row.tag - 101;
+	if (!iosTouch_bCheatMenuOpen || i < 0 || i >= 4) return;
+	int bit = iosTouch_aCheatBits[i];
+	IOS_SetCheatExtra(bit, !(IOS_CheatExtras() & bit));
+	[tick selectionChanged];
+	[self refreshCheatMenu];
+}
+
+- (void)openCheatMenu
+{
+	if (iosTouch_bCheatMenuOpen || iosTouch_bMultiplayer || iosTouch_bFrozen || iosTouch_mode != IOSTOUCH_MODE_GAMEPLAY) return;
+	[self releaseAll];	// (the tray, the wheel, the touches)
+	// under CHEAT, inside the safe area
+	UIEdgeInsets in = self.safeAreaInsets;
+	CGSize b = self.bounds.size;
+	CGFloat w = cheatPanel.bounds.size.width, h = cheatPanel.bounds.size.height;
+	CGFloat x = aCentres[BTN_CHEAT].x - w * 0.5;
+	CGFloat y = aCentres[BTN_CHEAT].y + IOSTOUCH_TOP_R + 8.0;
+	x = fmax(fmax(in.left, 0.0) + IOSTOUCH_MARGIN, fmin(x, b.width - fmax(in.right, 0.0) - IOSTOUCH_MARGIN - w));
+	y = fmax(fmax(in.top, 0.0) + IOSTOUCH_MARGIN, fmin(y, b.height - fmax(in.bottom, 0.0) - IOSTOUCH_MARGIN - h));
+	cheatPanel.frame = CGRectMake(x, y, w, h);
+	[self refreshCheatMenu];
+	iosTouch_bCheatMenuOpen = 1;
+	cheatPanel.hidden = NO;
+	[self bringSubviewToFront:cheatPanel];
+	IOS_HoldGame(1);
+	[thump impactOccurred];
+}
+
+- (void)closeCheatMenu
+{
+	if (!iosTouch_bCheatMenuOpen) return;
+	iosTouch_bCheatMenuOpen = 0;
+	cheatPanel.hidden = YES;
+	IOS_HoldGame(0);
 }
 
 // ------------------------------------------------ the camera's photos
@@ -2565,7 +2836,7 @@ void IOSTouch_TakeInput(iosTouchInput_t* input)
 		}
 		return;
 	}
-	if (iosTouch_mode != IOSTOUCH_MODE_GAMEPLAY || iosTouch_bWheelOpen) {
+	if (iosTouch_mode != IOSTOUCH_MODE_GAMEPLAY || iosTouch_bWheelOpen || iosTouch_bCheatMenuOpen) {
 		iosTouch_yaw = iosTouch_pitch = 0.0f;
 		return;
 	}

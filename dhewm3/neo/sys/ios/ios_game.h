@@ -56,13 +56,15 @@ void	IOS_RouteGuiTouch( void *gui );
 // goes away
 int		IOS_TakeDismiss( void );
 
-// The cheat button: whether cheat mode is wanted (god mode, every weapon and
-// ammo, the monsters taking no notice), and *serial, which changes each
-// time it's switched; FLY (noclip) asked for since the last call; and the
-// local player's cheats as they are
+// The cheat button: whether the main cheat is wanted (god mode, every
+// weapon, endless ammo), and *serial, which changes each time it's
+// switched; the cheat menu's switches wanted (IOSTOUCH_CHEAT_* in
+// ios_touch.h: the game puts noclip and notarget on its player), *serial
+// changing each time they do and at each new level or loaded game; and the
+// local player's god mode as it is
 int		IOS_CheatWanted( int *serial );
-int		IOS_TakeFly( void );
-void	IOS_CheatReport( int god, int noclip );
+int		IOS_CheatExtrasWanted( int *serial );
+void	IOS_CheatReport( int god );
 
 // The camera's Action Freeze: where the player's view is now (the free
 // camera starts there); and whether the view is the free camera's, from org
