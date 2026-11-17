@@ -31,11 +31,11 @@ The release notes have the full guide, step by step, and every control explained
 
 - **Touch controls made for DOOM 3:** a move stick wherever your left thumb lands, with a run marker above it; drag anywhere else to look; FIRE with JUMP, CROUCH, RELOAD and the flashlight round it.
 - **A weapon wheel:** slide off NEXT WPN and every weapon is there, with its ammo.
-- **Tilt aiming (gyro)**, a look speed to suit your thumb, and quick save and quick load on a short hold, so a stray tap never costs you.
+- **Tilt aiming (gyro)**, a look speed to suit your thumb, SAVE and LOAD that open the game's own pages with a tap and quick save or load with a short hold, and an OPACITY slider for the buttons.
 - **CAMERA:** photos of the game without the HUD, selfies, bursts, **Action Freeze** (stop the world and fly a camera round it) and a **cinematic burst** that sweeps round you. They go to your Photos app.
 - **The PDA by touch:** tap to click, drag to scroll the emails and logs.
 - **Both games in one app,** with a main menu laid out for the phone.
-- **Cheat mode** for a relaxed run: god mode, every weapon, flying through walls, and a list of every level to jump to.
+- **Cheat mode** for a relaxed run: god mode, every weapon with endless ammo, a cheat menu (Noclip, Notarget, Slow motion), and a list of every level to jump to.
 - **Multiplayer and co-op** (from [LibreCoop](https://github.com/Stradex/librecoop)), on the same Wi-Fi or by address. Not tested yet: see below.
 - **Sound with the phone on silent,** as a game should be.
 

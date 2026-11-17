@@ -28,14 +28,14 @@
 The first release. What makes it fun:
 
 - **Both games in one app:** DOOM 3 and, with its files, Resurrection of Evil, switched in the main menu (see *Switching games*). The app starts the game you played last.
-- **Touch controls:** a move stick wherever your left thumb lands, with a **run marker** above it (push onto it to run; running uses stamina, as on PC), drag anywhere else to look, FIRE with JUMP, CROUCH, RELOAD and LIGHT (the flashlight) round it, and a top row with NEXT WPN, PDA, CAMERA, QUICK SAVE, QUICK LOAD and MENU.
+- **Touch controls:** a move stick wherever your left thumb lands, with a **run marker** above it (push onto it to run; running uses stamina, as on PC), drag anywhere else to look, FIRE with JUMP, CROUCH, RELOAD and LIGHT (the flashlight) round it, and a top row with NEXT WPN, PDA, CAMERA, SAVE, LOAD and MENU.
 - **Weapon wheel:** slide or hold NEXT WPN to see every weapon with its ammo and pick one.
 - **MENU's hidden tray:** hold MENU for tilt aiming (GYRO), Always Run, look speed, an FPS counter, the cheat switch and the console with a keyboard.
 - **Tilt aiming (gyro):** OFF, TOUCH or ALWAYS, with four sensitivities.
 - **CAMERA:** photos of the game without the HUD, selfies, bursts, **Action Freeze** (stop the world and fly a camera round it) and a **cinematic burst**. Photos go to your Photos app.
 - **The PDA by touch:** tap to click, drag to scroll, and a close button.
 - **A main menu laid out for the phone:** DOOM 3's own menu filling the screen with a row of big buttons along the bottom, or the app's own **Modern** menu, or DOOM 3's menu exactly as it was. The settings have brightness, field of view, volume, look speed and whether the intro plays.
-- **Cheat mode** (single player): god mode, every weapon and its ammo, the monsters taking no notice, flying, and a list of the game's levels to jump to.
+- **Cheat mode** (single player): god mode, every weapon and endless ammo (never a reload), a cheat menu with **Noclip**, **Notarget** and **Slow motion**, and a list of the game's levels to jump to.
 - **Multiplayer (not tested yet):** DOOM 3's own multiplayer, with games on the same Wi-Fi found automatically, joining a game by its address, and **co-op and survival** for both games through [LibreCoop](https://github.com/Stradex/librecoop). It has never been tried between two phones, so it may well not work yet (see *Known limitations*).
 - **Sound plays with the phone on silent,** as a game should.
 
@@ -48,9 +48,9 @@ The touch controls appear while you're playing and hide in the menus, the PDA, c
 Where everything is (on a phone, turn it sideways to see the whole picture):
 
 ```
- NEXT  PDA       CAMERA   CHEAT   QUICK QUICK MENU
- WPN                              SAVE  LOAD
-      [GYRO] [RUN] [LOOK] [FPS] [CHEAT] [LEVEL] [kbd]
+ NEXT  PDA       CAMERA   CHEAT   SAVE  LOAD  MENU
+ WPN
+   [GYRO] [RUN] [LOOK] [OPACITY] [FPS] [CHEAT] [LEVEL] [kbd]
                    (MENU's tray, while it's open)
 
                                         LIGHT
@@ -89,9 +89,11 @@ Exact positions shift a little to fit your screen, keeping clear of the notch or
 - The gap at the bottom of the wheel cancels. You feel a tick as you move from slice to slice.
 - In single player the game holds still while the wheel is open; in multiplayer it goes on.
 
-#### Quick save and quick load: why the short hold
+#### SAVE and LOAD: a tap for the page, a short hold for quick save
 
-QUICK SAVE and QUICK LOAD act only after you've held them for 0.3 s, while a ring fills round the button; sliding your finger off cancels. That's so a stray tap can't save over your quick save or throw away your progress. The game can't save during a multiplayer game.
+- **Tap SAVE or LOAD** for DOOM 3's own Save Game or Load Game page.
+- **Hold SAVE or LOAD for 0.3 s**, while a ring fills round the button, to quick save or quick load; sliding your finger off cancels, and if both are held, SAVE wins. The hold is there so a stray tap can't save over your quick save or throw away your progress.
+- The game can't save or load during a multiplayer game; a tap there says so.
 
 #### MENU and its hidden tray
 
@@ -100,6 +102,7 @@ QUICK SAVE and QUICK LOAD act only after you've held them for 0.3 s, while a rin
   - **GYRO:** tap to switch tilt aiming off, or back on in the mode you used last. Hold it to open a second row with **MODE** (TOUCH or ALWAYS) and **SENS** (below).
   - **RUN:** Always Run on (lit blue) or off.
   - **LOOK:** the look speed (above).
+  - **OPACITY:** tap for a slider under the tray that makes every control (but the tray) more see-through, down to 20%; hold it to go back to full. Remembered.
   - **FPS:** a small frame-rate counter at the bottom of the screen, on or off.
   - **CHEAT:** shows the CHEAT button and turns cheat mode on; tap again to hide it and turn cheat mode off. Hold it to choose the laugh you hear as cheat mode goes on (below).
   - **LEVEL:** only while cheat mode is on (below).
@@ -138,9 +141,9 @@ CAMERA (the camera symbol) is in the middle of the top row. Every photo is of th
 #### Cheat mode (single player)
 
 - Switch it on with the tray's **CHEAT**: the CHEAT button (a pentagram in a ring) appears in the top row and cheat mode goes on, with a laugh from the game's own sounds (Dr. Betruger's, unless you pick another). Cheat mode is always off when the app starts; the button stays (greyed) until you hide it again from the tray.
-- **Hold the CHEAT button for 0.5 s** to switch cheat mode on (the pentagram turns red) or off. A tap does nothing, so it can't be hit by chance.
-- **While it's on:** god mode, every weapon with its ammo, and the monsters take no notice of you. It's put on again for each new level and each loaded game.
-- **FLY:** hold JUMP still for 0.5 s to fly through walls (DOOM 3's noclip); *FLY* under JUMP turns blue. While flying, holding JUMP rises; two quick taps on JUMP stop flying. Flying ends at each new level.
+- **Hold the CHEAT button for 0.5 s** (a ring of fire fills round it) to switch cheat mode on or off. Going on, the pentagram flashes and sends out embers; while on, it glows hell red and beats slowly like a heart.
+- **While it's on:** god mode, every weapon, and endless ammo: every magazine stays full, so you never reload. It's put on again for each new level and each loaded game.
+- **Tap the CHEAT button** for the cheat menu, whether cheat mode is on or not: **Noclip** (walk through walls), **Notarget** (the monsters take no notice of you) and **Slow motion**. A tap switches each on (gold) or off, and the menu stays open; touch anywhere else to close it. The game holds still while it's open. These end at each new level and when you load a game.
 - **LEVEL** (in the tray while cheat mode is on): a list of the game's single-player levels, in order. Tap one to go there.
 - **The laugh:** hold the tray's CHEAT for a list of the game's laughs; tap one to hear it and keep it.
 - Cheat mode isn't available in multiplayer games, and the CHEAT button hides there.
@@ -150,9 +153,9 @@ CAMERA (the camera symbol) is in the middle of the top row. Every photo is of th
 - **The main menu** starts as DOOM 3's own, filling the screen, with a row of big buttons along the bottom: **CONTINUE** (your newest save), **NEW GAME**, **LOAD GAME**, **MULTIPLAYER**, **MODS** and **OPTIONS**; over a game in progress, **RESUME**, **SAVE GAME**, **LOAD GAME**, **OPTIONS** and **MAIN MENU**. Its **STYLE** button (where *UPDATES* used to be) chooses **Classic** (that one), **Modern** (the app's own menu, with big buttons and your newest save to continue) or **Original** (DOOM 3's menu exactly as it was, with a *NEW MENU* button in the corner to come back). **MENU STYLE** in the settings chooses too.
 - **Switching games:** **MODS** (in the Modern menu, **GAMES**) lists DOOM 3, Resurrection of Evil (once its files are in), Co-op: DOOM 3 and Co-op: Resurrection of Evil; tap one to switch to it.
 - **OPTIONS** (in the Modern menu, **SETTINGS**) has BRIGHTNESS, FIELD OF VIEW, VOLUME, LOOK SPEED, PLAY INTRO AT START and MENU STYLE, and **MORE DOOM 3 SETTINGS** opens DOOM 3's own options (controls, sound, video).
-- **New game:** RECRUIT, MARINE and VETERAN; NIGHTMARE once the game has unlocked it.
+- **New game:** with Resurrection of Evil installed, NEW GAME first asks which game, DOOM 3 or Resurrection of Evil (the one running is marked PLAYING NOW); picking the other switches to it. Then RECRUIT, MARINE and VETERAN; NIGHTMARE once the game has unlocked it.
 - **The console:** the tray's keyboard button opens it with its own keyboard, with buttons to hide and show the keyboard and to close the console.
-- **Leaving the app doesn't save your game.** Save first (QUICK SAVE, or SAVE GAME in the menu).
+- **Leaving the app doesn't save your game.** Save first (hold SAVE for a quick save, or tap it for the Save Game page).
 
 #### Small print
 
@@ -163,7 +166,7 @@ CAMERA (the camera symbol) is in the middle of the top row. Every photo is of th
 
 **Sorry about the bugs.** This is an unofficial first release, made by a fan and tried by very few people so far. Expect bugs, and save often. Every report helps (see *Found a bug?*).
 
-- **First release, limited testing:** it has been played on one iPhone during development. Not tried yet: iPads (the app is marked for iPad, but has never been installed on one), game controllers, and game files from disc copies.
+- **First release, limited testing:** it has been played a lot on one iPhone during development. Not tried yet: iPads (the app is marked for iPad, but has never been installed on one), game controllers, and game files from disc copies.
 - **Multiplayer and co-op are untested:** they have never been tried between two phones, nor over the internet with Tailscale, so they may well not work yet. Sorry: that's the next thing to test and fix. Single player is what has been played.
 - **Only the original DOOM 3 (2004) and Resurrection of Evil.** The BFG Edition's files don't work, and neither do mods that come with their own game code (only DOOM 3's, Resurrection of Evil's and LibreCoop's are built in).
 - **Selfies** are one photo of you in an ordinary pose: DOOM 3 has no animation of the player holding a phone, and enemies aren't posed.
