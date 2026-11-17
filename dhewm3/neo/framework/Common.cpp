@@ -1626,6 +1626,9 @@ void Com_ReloadEngine_f( const idCmdArgs &args ) {
 		Sys_ShowConsole( 0, false );
 	}
 	common->Printf( "============= ReloadEngine end ===============\n" );
+#ifdef D3_IOS
+	IOS_MenuEngineReloaded();
+#endif
 
 	if ( !cmdSystem->PostReloadEngine() ) {
 		if ( menu ) {

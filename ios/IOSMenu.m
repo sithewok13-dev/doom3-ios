@@ -310,6 +310,131 @@ static NSString* IOSMenu_When(long long t)
 
 typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS } iosMenuPage_t;
 
+// ------------------------------------------------ NEW GAME's campaigns
+
+// NEW GAME tapped (either menu style), with Resurrection of Evil installed:
+// a dark sheet over the menu, two cards side by side, DOOM 3 and
+// Resurrection of Evil, the one running marked; a tap on one starts its
+// new game (its difficulty page, switching to it first if need be), a
+// touch off them closes it
+@interface IOSGamePicker : UIView
+@end
+
+@implementation IOSGamePicker
+
+static UIButton* IOSGamePicker_Card(NSString* name, NSString* detail, BOOL bNow)
+{
+	UIButton* b = [UIButton buttonWithType:UIButtonTypeCustom];
+	b.backgroundColor = [UIColor colorWithWhite:0.06 alpha:0.92];
+	b.layer.cornerRadius = 14.0;
+	b.layer.borderWidth = 1.5;
+	b.layer.borderColor = IOSMenu_Orange(bNow ? 0.7 : 0.35).CGColor;
+	UIView* bar = [[UIView alloc] init];
+	bar.translatesAutoresizingMaskIntoConstraints = NO;
+	bar.backgroundColor = IOSMenu_Orange(0.9);
+	bar.userInteractionEnabled = NO;
+	[b addSubview:bar];
+	UILabel* t = [[UILabel alloc] init];
+	t.translatesAutoresizingMaskIntoConstraints = NO;
+	t.numberOfLines = 0;
+	t.userInteractionEnabled = NO;
+	NSMutableAttributedString* a = [[NSMutableAttributedString alloc] initWithString:name attributes:@{
+		NSFontAttributeName: [UIFont systemFontOfSize:19 weight:UIFontWeightHeavy],
+		NSForegroundColorAttributeName: UIColor.whiteColor, NSKernAttributeName: @2.0 }];
+	[a appendAttributedString:[[NSAttributedString alloc] initWithString:[@"\n" stringByAppendingString:detail] attributes:@{
+		NSFontAttributeName: [UIFont systemFontOfSize:13 weight:UIFontWeightMedium],
+		NSForegroundColorAttributeName: [UIColor colorWithWhite:1.0 alpha:0.65] }]];
+	t.attributedText = a;
+	[b addSubview:t];
+	UILabel* now = [[UILabel alloc] init];
+	now.translatesAutoresizingMaskIntoConstraints = NO;
+	now.userInteractionEnabled = NO;
+	now.attributedText = [[NSAttributedString alloc] initWithString:(bNow ? @"PLAYING NOW" : @"") attributes:@{
+		NSFontAttributeName: [UIFont systemFontOfSize:10 weight:UIFontWeightHeavy],
+		NSForegroundColorAttributeName: IOSMenu_Orange(1.0), NSKernAttributeName: @2.0 }];
+	[b addSubview:now];
+	[NSLayoutConstraint activateConstraints:@[
+		[bar.leadingAnchor constraintEqualToAnchor:b.leadingAnchor constant:18.0],
+		[bar.topAnchor constraintEqualToAnchor:b.topAnchor constant:18.0],
+		[bar.widthAnchor constraintEqualToConstant:28.0],
+		[bar.heightAnchor constraintEqualToConstant:3.0],
+		[t.leadingAnchor constraintEqualToAnchor:b.leadingAnchor constant:18.0],
+		[t.trailingAnchor constraintEqualToAnchor:b.trailingAnchor constant:-14.0],
+		[t.topAnchor constraintEqualToAnchor:bar.bottomAnchor constant:12.0],
+		[now.leadingAnchor constraintEqualToAnchor:b.leadingAnchor constant:18.0],
+		[now.bottomAnchor constraintEqualToAnchor:b.bottomAnchor constant:-14.0],
+	]];
+	return b;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+	self = [super initWithFrame:frame];
+	if (!self) return nil;
+	self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	self.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.72];
+	int current = IOS_MenuCampaign();
+	UILabel* head = [[UILabel alloc] init];
+	head.attributedText = [[NSAttributedString alloc] initWithString:@"NEW GAME" attributes:@{
+		NSFontAttributeName: [UIFont systemFontOfSize:14 weight:UIFontWeightHeavy],
+		NSForegroundColorAttributeName: IOSMenu_Orange(0.95), NSKernAttributeName: @4.0 }];
+	head.textAlignment = NSTextAlignmentCenter;
+	head.tag = 101;
+	[self addSubview:head];
+	UIButton* doom = IOSGamePicker_Card(@"DOOM 3", @"The original campaign", current == 0);
+	UIButton* roe = IOSGamePicker_Card(@"RESURRECTION\nOF EVIL", @"The expansion", current == 1);
+	doom.tag = 102;
+	roe.tag = 103;
+	for (UIButton* b in @[ doom, roe ]) {
+		[b addTarget:self action:@selector(cardDown:) forControlEvents:UIControlEventTouchDown | UIControlEventTouchDragEnter];
+		[b addTarget:self action:@selector(cardUp:) forControlEvents:UIControlEventTouchDragExit | UIControlEventTouchCancel];
+		[b addTarget:self action:@selector(cardPicked:) forControlEvents:UIControlEventTouchUpInside];
+		[self addSubview:b];
+	}
+	return self;
+}
+
+- (void)layoutSubviews
+{
+	[super layoutSubviews];
+	CGSize sz = self.bounds.size;
+	CGFloat gap = 16.0;
+	CGFloat w = fmin(250.0, (sz.width - 3.0 * gap) * 0.5);
+	CGFloat h = 150.0;
+	CGFloat x = (sz.width - 2.0 * w - gap) * 0.5;
+	CGFloat y = (sz.height - h) * 0.5 + 12.0;
+	[self viewWithTag:101].frame = CGRectMake(0, y - 40.0, sz.width, 22.0);
+	[self viewWithTag:102].frame = CGRectMake(x, y, w, h);
+	[self viewWithTag:103].frame = CGRectMake(x + w + gap, y, w, h);
+}
+
+- (void)cardDown:(UIButton*)b
+{
+	b.layer.borderColor = IOSMenu_Orange(1.0).CGColor;
+	b.transform = CGAffineTransformMakeScale(0.97, 0.97);
+}
+
+- (void)cardUp:(UIButton*)b
+{
+	b.layer.borderColor = IOSMenu_Orange((b.tag - 102) == IOS_MenuCampaign() ? 0.7 : 0.35).CGColor;
+	b.transform = CGAffineTransformIdentity;
+}
+
+- (void)cardPicked:(UIButton*)b
+{
+	[[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
+	IOS_MenuNewGameIn((int)(b.tag - 102));
+	[self removeFromSuperview];
+}
+
+// a touch off the cards closes it
+- (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event
+{
+	[self removeFromSuperview];
+}
+
+@end
+
 @interface IOSMenuView : UIView
 @property (nonatomic) BOOL classicNow;	// DOOM 3's own menu showing for now (its multiplayer, its settings)
 - (void)frame:(int)bOverMenus;
@@ -329,6 +454,8 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	int					gameKind;
 	UIButton*			backToMenu;		// over DOOM 3's own menu: back to this one
 	UIButton*			styleButton;	// over DOOM 3's STYLE (its UPDATES), zoomed
+	UIButton*			newGameButton;	// over DOOM 3's NEW GAME, zoomed: the campaigns
+	IOSGamePicker*		gamePicker;		// NEW GAME's campaigns, showing
 	int					style;			// IOSMENU_STYLE_CLASSIC or _MODERN
 	IOSMenuGrid*		sideLeft;		// classic: the sides of DOOM 3's menu
 	IOSMenuGrid*		sideRight;
@@ -631,7 +758,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 			[self addButton:@"SAVE GAME" detail:nil action:^{ [weak saveGame]; }];
 		}
 		if (gameKind != 2) {
-			if (!bInGame) [self addButton:@"NEW GAME" detail:nil action:^{ [weak showPage:PAGE_NEWGAME]; }];
+			if (!bInGame) [self addButton:@"NEW GAME" detail:nil action:^{ [weak newGameTapped]; }];
 			[self addButton:@"LOAD GAME" detail:nil action:^{ [weak showPage:PAGE_LOAD]; }];
 		}
 		if (!bInGame) {
@@ -833,14 +960,28 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	int bMain = bOverMenus && IOS_MenuIsMain();
 	if (!bOverMenus) self.classicNow = NO;	// (left the menus: this one next time)
 	int bShow = bMain && st == IOSMENU_STYLE_MODERN && !self.classicNow;
+	float x, y, w, h;
+	if (!bMain) [gamePicker removeFromSuperview];
 	if (bShow && self.hidden) [self refresh];
 	if (bShow && (IOS_MenuInGame() != bInGame || IOS_MenuGameKind() != gameKind)) [self refresh];
 	self.hidden = !bShow;
+	// MODERN: a new game's difficulty page, the game switched to for it
+	if (IOS_MenuTakeNewGamePage() && bShow) {
+		[self refresh];
+		[self showPage:PAGE_NEWGAME];
+	}
+	// CLASSIC: over its NEW GAME (out of a game, in DOOM 3 or Resurrection
+	// of Evil), the campaigns
+	newGameButton.hidden = !(bMain && st == IOSMENU_STYLE_CLASSIC && !IOS_MenuInGame() && IOS_MenuCampaign() >= 0
+		&& !gamePicker.superview && IOS_MenuLabelRect("NEW GAME", &x, &y, &w, &h));
+	if (!newGameButton.hidden) {
+		CGSize sz = self.superview.bounds.size;
+		newGameButton.frame = CGRectMake(x * sz.width, y * sz.height, w * sz.width, h * sz.height);
+	}
 	// over DOOM 3's own main menu as it is: back to the app's (for good, if
 	// it was picked)
 	backToMenu.hidden = !(bMain && !bShow && st != IOSMENU_STYLE_CLASSIC);
 	// CLASSIC: over its STYLE (UPDATES, once), the styles to pick from
-	float x, y, w, h;
 	styleButton.hidden = !(bMain && st == IOSMENU_STYLE_CLASSIC && IOS_MenuLabelRect("STYLE", &x, &y, &w, &h));
 	if (!styleButton.hidden) {
 		CGSize sz = self.superview.bounds.size;
@@ -864,6 +1005,26 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 	UIViewController* vc = self.window.rootViewController ?: styleButton.window.rootViewController;
 	while (vc.presentedViewController) vc = vc.presentedViewController;
 	[vc presentViewController:a animated:YES completion:nil];
+}
+
+// NEW GAME (either style): with Resurrection of Evil installed, the
+// campaigns to pick from, over everything; else straight to the difficulty
+- (void)newGameTapped
+{
+	if (IOS_MenuCampaign() < 0 || !IOS_MenuHasRoE()) {
+		if (IOSMenu_Style() == IOSMENU_STYLE_MODERN) [self showPage:PAGE_NEWGAME];
+		else IOS_MenuPressClassic("NEW GAME");
+		return;
+	}
+	UIView* game = self.superview;
+	gamePicker = [[IOSGamePicker alloc] initWithFrame:game.bounds];
+	[game addSubview:gamePicker];
+}
+
+- (void)setNewGameButton:(UIButton*)b
+{
+	newGameButton = b;
+	[b addTarget:self action:@selector(newGameTapped) forControlEvents:UIControlEventTouchUpInside];
 }
 
 - (void)setStyleButton:(UIButton*)b
@@ -891,6 +1052,7 @@ typedef enum { PAGE_MAIN = 0, PAGE_NEWGAME, PAGE_LOAD, PAGE_GAMES, PAGE_SETTINGS
 static IOSMenuView* iosMenu_pView = nil;
 static UIButton* iosMenu_pBack = nil;	// over DOOM 3's own menu: back to this one
 static UIButton* iosMenu_pStyle = nil;	// over its STYLE
+static UIButton* iosMenu_pNewGame = nil;	// over its NEW GAME
 
 // Once a frame (the touch controls': IOSTouch_Frame), under their overlay in
 // the game's view; bOverMenus: the menus are up
@@ -916,23 +1078,31 @@ void IOSMenu_Frame(UIView* game, UIView* overlay, int bOverMenus)
 		pick.hidden = YES;
 		[iosMenu_pView setStyleButton:pick];
 		iosMenu_pStyle = pick;
+		UIButton* newGame = [UIButton buttonWithType:UIButtonTypeCustom];
+		newGame.hidden = YES;
+		[iosMenu_pView setNewGameButton:newGame];
+		iosMenu_pNewGame = newGame;
 	}
 	UIButton* back = iosMenu_pBack;
 	UIButton* pick = iosMenu_pStyle;
+	UIButton* newGame = iosMenu_pNewGame;
 	if (iosMenu_pView.superview != game) {
 		[iosMenu_pView removeFromSuperview];
 		[back removeFromSuperview];
 		[pick removeFromSuperview];
+		[newGame removeFromSuperview];
 		iosMenu_pView.frame = game.bounds;
 		[game addSubview:iosMenu_pView];
 		[game addSubview:back];
 		[game addSubview:pick];
+		[game addSubview:newGame];
 	}
 	// (under the overlay, which lets the menus' touches through; the style
 	// button over it, to take its touch from DOOM 3's button under it)
 	[game insertSubview:iosMenu_pView belowSubview:overlay];
 	[game insertSubview:back belowSubview:overlay];
 	[game insertSubview:pick aboveSubview:overlay];
+	[game insertSubview:newGame aboveSubview:overlay];
 	UIEdgeInsets in = game.safeAreaInsets;
 	back.center = CGPointMake(fmax(in.left, 8.0) + 8.0 + back.bounds.size.width * 0.5, fmax(in.top, 8.0) + 8.0 + back.bounds.size.height * 0.5);
 	[iosMenu_pView frame:bOverMenus];

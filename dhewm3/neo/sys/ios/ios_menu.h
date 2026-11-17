@@ -73,6 +73,18 @@ typedef struct {
 int		IOS_MenuMods( iosMenuMod_t *out, int max, int *current );
 void	IOS_MenuSwitchGame( const char *dir );
 
+// NEW GAME's choice of campaign: the one running (0 DOOM 3, 1 Resurrection
+// of Evil, -1 a mod or co-op: no choice), whether Resurrection of Evil is
+// installed, and a new game in one (switching to it first if need be, then
+// its difficulty page: DOOM 3's own pressed, or the app's MODERN one, which
+// IOS_MenuTakeNewGamePage says to show, once)
+int		IOS_MenuCampaign( void );
+int		IOS_MenuHasRoE( void );
+void	IOS_MenuNewGameIn( int campaign );
+int		IOS_MenuTakeNewGamePage( void );
+// (framework/Common.cpp) the engine reloaded (a game switched to)
+void	IOS_MenuEngineReloaded( void );
+
 // DOOM 3's own menu: its button showing label pressed (MULTIPLAYER,
 // OPTIONS...); 1 if there was one
 int		IOS_MenuPressClassic( const char *label );

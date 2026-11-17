@@ -54,6 +54,16 @@ static int savePageAsked = -1;
 static int savePageTime;
 static int savePageFrames;	// frames the main menu has shown since
 static const int SAVE_PAGE_MSEC = 2000;
+// NEW GAME's campaign picked: its difficulty page to open, once the game
+// is switched to if it had to be (the engine reloaded) and the main menu
+// has shown a few frames; given up after NEW_GAME_PAGE_MSEC
+enum { NEWPAGE_NONE, NEWPAGE_RELOAD, NEWPAGE_MENU };
+static int newGamePage = NEWPAGE_NONE;
+static int newGamePageCampaign;
+static int newGamePageTime;
+static int newGamePageFrames;
+static bool newGamePageModern;	// (the app's MODERN page to show)
+static const int NEW_GAME_PAGE_MSEC = 30000;
 
 int IOS_MenuIsMain( void ) {
 	return sessLocal.guiActive != NULL && sessLocal.guiActive == sessLocal.guiMainMenu;
@@ -208,6 +218,79 @@ void IOS_MenuSwitchGame( const char *dir ) {
 	cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "reloadEngine menu\n" );
 }
 
+int IOS_MenuCampaign( void ) {
+	const char *game = cvarSystem->GetCVarString( "fs_game" );
+	if ( game[0] == '\0' || idStr::Icmp( game, BASE_GAMEDIR ) == 0 ) {
+		return 0;
+	}
+	if ( idStr::Icmp( game, "d3xp" ) == 0 ) {
+		return 1;
+	}
+	return -1;
+}
+
+int IOS_MenuHasRoE( void ) {
+	int found = 0;
+	idModList *list = fileSystem->ListMods();
+	for ( int i = 0; i < list->GetNumMods(); i++ ) {
+		if ( idStr::Icmp( list->GetMod( i ), "d3xp" ) == 0 ) {
+			found = 1;
+		}
+	}
+	fileSystem->FreeModList( list );
+	return found;
+}
+
+void IOS_MenuNewGameIn( int campaign ) {
+	newGamePageCampaign = campaign;
+	newGamePageTime = Sys_Milliseconds();
+	newGamePageFrames = 0;
+	if ( campaign == IOS_MenuCampaign() ) {
+		newGamePage = NEWPAGE_MENU;
+		return;
+	}
+	newGamePage = NEWPAGE_RELOAD;
+	IOS_MenuSwitchGame( campaign == 1 ? "d3xp" : "" );
+}
+
+int IOS_MenuTakeNewGamePage( void ) {
+	bool modern = newGamePageModern;
+	newGamePageModern = false;
+	return modern;
+}
+
+void IOS_MenuEngineReloaded( void ) {
+	if ( newGamePage == NEWPAGE_RELOAD ) {
+		newGamePage = NEWPAGE_MENU;
+		newGamePageFrames = 0;
+	}
+}
+
+// once a frame: the difficulty page asked for, when the main menu of the
+// right game is up
+static void IOS_NewGamePageFrame( void ) {
+	if ( newGamePage == NEWPAGE_NONE ) {
+		return;
+	}
+	if ( Sys_Milliseconds() - newGamePageTime > NEW_GAME_PAGE_MSEC ) {
+		newGamePage = NEWPAGE_NONE;
+		return;
+	}
+	if ( newGamePage != NEWPAGE_MENU || !IOS_MenuIsMain() || sessLocal.mapSpawned
+		|| IOS_MenuCampaign() != newGamePageCampaign ) {
+		return;
+	}
+	if ( ++newGamePageFrames < 5 ) {
+		return;
+	}
+	if ( IOS_MenuStyle() == 1 ) {
+		newGamePageModern = true;
+		newGamePage = NEWPAGE_NONE;
+	} else if ( IOS_MenuPressClassic( "NEW GAME" ) ) {
+		newGamePage = NEWPAGE_NONE;
+	}
+}
+
 void IOS_OpenSaveMenu( int save ) {
 	if ( !sessLocal.mapSpawned || sessLocal.guiActive != NULL || idAsyncNetwork::IsActive() ) {
 		return;
@@ -294,6 +377,7 @@ void IOS_MenuFrame( void ) {
 		}
 	}
 	IOS_SavePageFrame();
+	IOS_NewGamePageFrame();
 	if ( quitAsked ) {
 		quitAsked = false;
 		cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "disconnect\n" );
