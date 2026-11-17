@@ -115,7 +115,7 @@ enum {
 	IOSTOUCH_CHEAT_NOCLIP	= 1 << 0,	// fly through walls
 	IOSTOUCH_CHEAT_NOTARGET	= 1 << 1,	// enemies ignore the player
 	IOSTOUCH_CHEAT_SLOWMO	= 1 << 2,	// half speed
-	IOSTOUCH_CHEAT_LOWGRAV	= 1 << 3,	// a quarter of the gravity
+	IOSTOUCH_CHEAT_ROWS	= 3,		// how many there are
 };
 void	IOS_SetCheatExtra( int bit, int on );
 int		IOS_CheatExtras( void );			// the switches on (IOSTOUCH_CHEAT_*)

@@ -32,8 +32,8 @@
  *   every weapon, endless ammo: full magazines, never a reload), red while
  *   on, with its laugh going on; MENU's tray has LEVEL then, a list of the
  *   game's levels. Tapped, the cheat menu under it, whether the main cheat
- *   is on or not: Noclip, Notarget, Slow motion, Low gravity, each a tap to
- *   switch (gold while on), the menu staying open; a touch off it closes it
+ *   is on or not: Noclip, Notarget, Slow motion, each a tap to switch
+ *   (gold while on), the menu staying open; a touch off it closes it
  *   and does nothing else; the game holds still meanwhile. The switches are
  *   apart from the main cheat, and all end at each new level, on loading a
  *   game, and with CHEAT hidden. No control button does a cheat's job.
@@ -793,9 +793,9 @@ static NSString* iosTouch_VersionText(void)
 	CAShapeLayer*		cheatEmblem;	// CHEAT's pentagram, its points on the button's edge
 	// the cheat menu (CHEAT tapped): its rows, and their names and ON / OFF
 	UIView*				cheatPanel;
-	UIButton*			aCheatRows[4];
-	UILabel*			aCheatNames[4];
-	UILabel*			aCheatStates[4];
+	UIButton*			aCheatRows[IOSTOUCH_CHEAT_ROWS];
+	UILabel*			aCheatNames[IOSTOUCH_CHEAT_ROWS];
+	UILabel*			aCheatStates[IOSTOUCH_CHEAT_ROWS];
 	// OPACITY's slider, under the tray
 	UIView*				opacityPanel;
 	UISlider*			opacitySlider;
@@ -2483,13 +2483,13 @@ static int iosTouch_InWheelSlice(CGPoint p, CGFloat deg, CGFloat pad)
 // a touch off it closes it and does nothing else. The game holds still
 // while it's open. Single player only. (The rows' labels are kept here,
 // not found by their tags: viewWithTag: looks at the view itself first.)
-static const char* const iosTouch_aCheatNames[4] = { "Noclip", "Notarget", "Slow motion", "Low gravity" };
-static const char* const iosTouch_aCheatAbout[4] = { "Fly through walls", "Enemies ignore you", "The game at half speed", "A quarter of the gravity" };
-static const int iosTouch_aCheatBits[4] = { IOSTOUCH_CHEAT_NOCLIP, IOSTOUCH_CHEAT_NOTARGET, IOSTOUCH_CHEAT_SLOWMO, IOSTOUCH_CHEAT_LOWGRAV };
+static const char* const iosTouch_aCheatNames[IOSTOUCH_CHEAT_ROWS] = { "Noclip", "Notarget", "Slow motion" };
+static const char* const iosTouch_aCheatAbout[IOSTOUCH_CHEAT_ROWS] = { "Fly through walls", "Enemies ignore you", "The game at half speed" };
+static const int iosTouch_aCheatBits[IOSTOUCH_CHEAT_ROWS] = { IOSTOUCH_CHEAT_NOCLIP, IOSTOUCH_CHEAT_NOTARGET, IOSTOUCH_CHEAT_SLOWMO };
 
 - (void)makeCheatMenu
 {
-	cheatPanel = [[UIView alloc] initWithFrame:CGRectMake(0, 0, IOSTOUCH_CHEAT_MENU_W, IOSTOUCH_CHEAT_MENU_TOP + 4 * IOSTOUCH_CHEAT_ROW_H + 6.0)];
+	cheatPanel = [[UIView alloc] initWithFrame:CGRectMake(0, 0, IOSTOUCH_CHEAT_MENU_W, IOSTOUCH_CHEAT_MENU_TOP + IOSTOUCH_CHEAT_ROWS * IOSTOUCH_CHEAT_ROW_H + 6.0)];
 	cheatPanel.backgroundColor = UIColor.clearColor;
 	cheatPanel.layer.cornerRadius = 14.0;
 	cheatPanel.layer.borderWidth = 1.5;
@@ -2512,7 +2512,7 @@ static const int iosTouch_aCheatBits[4] = { IOSTOUCH_CHEAT_NOCLIP, IOSTOUCH_CHEA
 	title.textColor = IOSTOUCH_CHEAT_RED(1.0);
 	title.userInteractionEnabled = NO;
 	[cheatPanel addSubview:title];
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < IOSTOUCH_CHEAT_ROWS; i++) {
 		UIButton* row = [UIButton buttonWithType:UIButtonTypeCustom];
 		row.frame = CGRectMake(0, IOSTOUCH_CHEAT_MENU_TOP + i * IOSTOUCH_CHEAT_ROW_H, IOSTOUCH_CHEAT_MENU_W, IOSTOUCH_CHEAT_ROW_H);
 		row.tag = 101 + i;
@@ -2542,7 +2542,7 @@ static const int iosTouch_aCheatBits[4] = { IOSTOUCH_CHEAT_NOCLIP, IOSTOUCH_CHEA
 - (void)refreshCheatMenu
 {
 	int on = IOS_CheatExtras();
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < IOSTOUCH_CHEAT_ROWS; i++) {
 		int bOn = (on & iosTouch_aCheatBits[i]) != 0;
 		aCheatRows[i].backgroundColor = bOn ? IOSTOUCH_CHEAT_GOLD(0.22) : UIColor.clearColor;
 		aCheatNames[i].textColor = bOn ? IOSTOUCH_CHEAT_GOLD(1.0) : [UIColor colorWithWhite:1.0 alpha:0.92];

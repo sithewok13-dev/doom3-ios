@@ -170,12 +170,19 @@ would be new work; tell me if you want it.
 Held 0.5 s (a ring), CHEAT is the main cheat on or off: god mode, every weapon, endless ammo
 (full magazines, so no reloading, and full spare ammo), with the picked laugh going on. A tap
 opens the cheat menu under it, whether the main cheat is on or not: Noclip (fly through walls),
-Notarget (enemies ignore you), Slow motion (half speed), Low gravity (a quarter). A tap on a row
+Notarget (enemies ignore you), Slow motion (half speed). A tap on a row
 switches it (gold while on) and the menu stays open; a touch off it closes it and does nothing
 else; the game holds still while it's open. The switches are separate from the main cheat, all
 end at each new level, on loading a game, and when CHEAT is hidden from the tray. Single player
 only. No status labels, no reminder toasts, and no cheat jobs on control buttons (JUMP's FLY and
-its double tap are gone). The original plan follows.
+its double tap are gone).
+
+**The rule for cheats across the owner's ports:** share the way in (a tap opens the cheat
+menu, a 0.5 s hold switches the main cheat, gold rows, the game holding still), never the
+cheats themselves. Each game gets only cheats that fit it, ideally ones it already had in its
+own console or a later official edition. DOOM 3 has no low gravity, so none here just because
+Half-Life's menu has it; Slow motion stays because Resurrection of Evil's own slow-motion
+(the Artifact's bullet time) is part of DOOM 3. The original plan follows.
 
 - The tray's CHEAT switch shows the CHEAT button (remembered). Holding CHEAT 0.5 s toggles the cheat
   (grey = off, gold = on); a tap does nothing. Typing `sithewok` in the console also toggles it. The

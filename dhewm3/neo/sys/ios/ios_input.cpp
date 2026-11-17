@@ -85,14 +85,11 @@ static int cheatWanted;
 static int cheatSerial;
 static bool cheatGod;
 // the cheat menu's switches (IOSTOUCH_CHEAT_*), *Serial changing each time
-// they do; slow motion's and low gravity's cvars as they were before, and as
-// they were set
+// they do; slow motion's timescale as it was before
 static int cheatExtras;
 static int cheatExtrasSerial;
 static float slowmoSaved = 1.0f;
-static float gravitySaved, gravitySet;
 static const float IOS_SLOWMO_SCALE = 0.5f;
-static const float IOS_LOWGRAV_SCALE = 0.25f;
 
 // the camera: a photo asked for; a selfie waits for the third person view
 // to be drawn before it's taken
@@ -280,9 +277,8 @@ IOS_SetCheatExtra
 
 One of the cheat menu's switches, to exactly on or off (single player, in
 a level): noclip and notarget are the game's to put on the local player
-(IOS_CheatExtrasWanted); slow motion is timescale at half, low gravity
-g_gravity at a quarter of the level's, each put back as it was, unless
-something else changed it meanwhile
+(IOS_CheatExtrasWanted); slow motion is timescale at half, put back as
+it was unless something else changed it meanwhile
 ================
 */
 void IOS_SetCheatExtra( int bit, int on ) {
@@ -300,14 +296,6 @@ void IOS_SetCheatExtra( int bit, int on ) {
 		} else if ( idMath::Fabs( cvarSystem->GetCVarFloat( "timescale" ) - IOS_SLOWMO_SCALE ) < 0.001f ) {
 			cvarSystem->SetCVarFloat( "timescale", slowmoSaved );
 		}
-	} else if ( bit == IOSTOUCH_CHEAT_LOWGRAV ) {
-		if ( on ) {
-			gravitySaved = cvarSystem->GetCVarFloat( "g_gravity" );
-			gravitySet = gravitySaved * IOS_LOWGRAV_SCALE;
-			cvarSystem->SetCVarFloat( "g_gravity", gravitySet );
-		} else if ( idMath::Fabs( cvarSystem->GetCVarFloat( "g_gravity" ) - gravitySet ) < 0.01f ) {
-			cvarSystem->SetCVarFloat( "g_gravity", gravitySaved );
-		}
 	}
 	if ( on ) {
 		cheatExtras |= bit;
@@ -322,14 +310,14 @@ int IOS_CheatExtras( void ) {
 }
 
 void IOS_CheatExtrasOff( void ) {
-	static const int bits[] = { IOSTOUCH_CHEAT_NOCLIP, IOSTOUCH_CHEAT_NOTARGET, IOSTOUCH_CHEAT_SLOWMO, IOSTOUCH_CHEAT_LOWGRAV };
-	for ( int i = 0; i < 4; i++ ) {
+	static const int bits[] = { IOSTOUCH_CHEAT_NOCLIP, IOSTOUCH_CHEAT_NOTARGET, IOSTOUCH_CHEAT_SLOWMO };
+	for ( int i = 0; i < IOSTOUCH_CHEAT_ROWS; i++ ) {
 		IOS_SetCheatExtra( bits[i], 0 );
 	}
 }
 
 // a new level, or a saved game loading (idSessionLocal::ExecuteMapChange):
-// the switches end (each level's world sets its own gravity again), and the
+// the switches end, and the
 // game puts noclip and notarget off on its player, whatever the save had
 void IOS_CheatMapChange( void ) {
 	IOS_CheatExtrasOff();
