@@ -41,12 +41,13 @@
       "versions": [
         {
           "version": "1.0",
-          "buildVersion": "40",
-          "marketingVersion": "Build 40 (test build)",
-          "date": "2026-11-09T17:28:07Z",
-          "localizedDescription": "The newest test build (ios-latest, build 40 of 2026-11-09), before the first numbered release. It hasn't been tried by many people yet.",
-          "downloadURL": "https://github.com/sithewok13-dev/doom3-ios/releases/download/ios-latest/DOOM3-iOS-unsigned.ipa",
-          "size": 10566056,
+          "buildVersion": "47",
+          "marketingVersion": "ios-v0.1",
+          "date": "2026-11-17T19:53:35Z",
+          "localizedDescription": "The first release. What makes it fun:\n- Both games in one app\n- Touch controls\n- Weapon wheel\n- MENU's hidden tray\n- Tilt aiming (gyro)\n- CAMERA\n- The PDA by touch\n- A main menu laid out for the phone\n\nFull notes: https://github.com/sithewok13-dev/doom3-ios/releases/tag/ios-v0.1",
+          "downloadURL": "https://github.com/sithewok13-dev/doom3-ios/releases/download/ios-v0.1/DOOM3-iOS-unsigned.ipa",
+          "size": 10578943,
+          "sha256": "439fdecaa8f1a64fe9705de74939db60782a822611db43c1ea4081cd5c32b865",
           "minOSVersion": "18.0"
         }
       ],
@@ -59,10 +60,10 @@
         }
       },
       "version": "1.0",
-      "versionDate": "2026-11-09T17:28:07Z",
-      "versionDescription": "The newest test build (ios-latest, build 40 of 2026-11-09), before the first numbered release. It hasn't been tried by many people yet.",
-      "downloadURL": "https://github.com/sithewok13-dev/doom3-ios/releases/download/ios-latest/DOOM3-iOS-unsigned.ipa",
-      "size": 10566056
+      "versionDate": "2026-11-17T19:53:35Z",
+      "versionDescription": "The first release. What makes it fun:\n- Both games in one app\n- Touch controls\n- Weapon wheel\n- MENU's hidden tray\n- Tilt aiming (gyro)\n- CAMERA\n- The PDA by touch\n- A main menu laid out for the phone\n\nFull notes: https://github.com/sithewok13-dev/doom3-ios/releases/tag/ios-v0.1",
+      "downloadURL": "https://github.com/sithewok13-dev/doom3-ios/releases/download/ios-v0.1/DOOM3-iOS-unsigned.ipa",
+      "size": 10578943
     }
   ],
   "news": []
