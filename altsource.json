@@ -1,0 +1,69 @@
+{
+  "name": "DOOM 3 for iPhone (unofficial)",
+  "identifier": "io.github.sithewok13.doom3",
+  "subtitle": "The original DOOM 3 and Resurrection of Evil on iPhone.",
+  "description": "An unofficial iPhone build of the original 2004 DOOM 3 and its expansion Resurrection of Evil, on dhewm3 (the open-source DOOM 3 engine), with touch controls. Bring your own game files.\n\nIt's a beta: expect bugs. Bug reports: https://github.com/sithewok13-dev/doom3-ios/issues\n\nNot affiliated with or endorsed by id Software, Bethesda Softworks, ZeniMax Media or Microsoft, or by the dhewm3 developers.",
+  "iconURL": "https://raw.githubusercontent.com/sithewok13-dev/doom3-ios/ios/ios/Assets.xcassets/AppIcon.appiconset/Icon-1024.png",
+  "website": "https://github.com/sithewok13-dev/doom3-ios",
+  "tintColor": "#B3261E",
+  "apps": [
+    {
+      "name": "DOOM 3",
+      "bundleIdentifier": "com.sithewok.doom3",
+      "developerName": "sithewok13-dev",
+      "subtitle": "DOOM 3 and Resurrection of Evil, with touch controls.",
+      "localizedDescription": "The original 2004 DOOM 3 and its expansion Resurrection of Evil, in one app, on dhewm3, the open-source DOOM 3 engine.\n\n- Touch controls made for it: a move stick under your left thumb with a run marker, drag to look, FIRE with JUMP, CROUCH, RELOAD and the flashlight round it\n- A weapon wheel with every weapon and its ammo\n- Tilt aiming (gyro), look speed, quick save and quick load\n- CAMERA: photos, selfies, bursts, Action Freeze (stop the world and fly a camera round it) and a cinematic burst\n- The PDA by touch\n- A main menu laid out for the phone\n- A cheat mode: god mode, every weapon, fly, and a level list\n- Multiplayer and LibreCoop's co-op (not tested between two phones yet)\n- Sound with the phone on silent\n\nYou need your own copy of the original DOOM 3 (Steam or GOG, both include it alongside the BFG Edition, whose files don't work): no game files are included. Open the app once, then copy pak000.pk4 to pak008.pk4 from the game's base folder into Files > On My iPhone > DOOM 3 > base (and Resurrection of Evil's d3xp files into d3xp).\n\nIt's an unofficial beta: expect bugs, and save often. Full guide: https://github.com/sithewok13-dev/doom3-ios/releases/latest\n\nBuilt on dhewm3 by Daniel Gibson and contributors, from id Software's DOOM 3 GPL source, and on Tom Kidd's DOOM3-iOS. Free software under the GNU GPL v3. Not affiliated with or endorsed by id Software, Bethesda Softworks, ZeniMax Media or Microsoft.",
+      "iconURL": "https://raw.githubusercontent.com/sithewok13-dev/doom3-ios/ios/ios/Assets.xcassets/AppIcon.appiconset/Icon-1024.png",
+      "tintColor": "#B3261E",
+      "category": "games",
+      "screenshots": [
+        {
+          "imageURL": "https://raw.githubusercontent.com/sithewok13-dev/doom3-ios/ios/docs/ios/screenshots/cyberdemon-bfg.jpg",
+          "width": 1560,
+          "height": 720
+        },
+        {
+          "imageURL": "https://raw.githubusercontent.com/sithewok13-dev/doom3-ios/ios/docs/ios/screenshots/imp-flashlight.jpg",
+          "width": 1560,
+          "height": 720
+        },
+        {
+          "imageURL": "https://raw.githubusercontent.com/sithewok13-dev/doom3-ios/ios/docs/ios/screenshots/hell-plasma.jpg",
+          "width": 1560,
+          "height": 720
+        },
+        {
+          "imageURL": "https://raw.githubusercontent.com/sithewok13-dev/doom3-ios/ios/docs/ios/screenshots/revenant-shotgun.jpg",
+          "width": 1560,
+          "height": 720
+        }
+      ],
+      "versions": [
+        {
+          "version": "1.0",
+          "buildVersion": "40",
+          "marketingVersion": "Build 40 (test build)",
+          "date": "2026-11-09T17:28:07Z",
+          "localizedDescription": "The newest test build (ios-latest, build 40 of 2026-11-09), before the first numbered release. It hasn't been tried by many people yet.",
+          "downloadURL": "https://github.com/sithewok13-dev/doom3-ios/releases/download/ios-latest/DOOM3-iOS-unsigned.ipa",
+          "size": 10566056,
+          "minOSVersion": "18.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSMotionUsageDescription": "DOOM 3 can aim with your phone's movement (Gyro in the menu button's tray).",
+          "NSPhotoLibraryAddUsageDescription": "The camera button saves your photos and selfies of the game to Photos.",
+          "NSLocalNetworkUsageDescription": "DOOM 3 finds and joins multiplayer games on your Wi-Fi."
+        }
+      },
+      "version": "1.0",
+      "versionDate": "2026-11-09T17:28:07Z",
+      "versionDescription": "The newest test build (ios-latest, build 40 of 2026-11-09), before the first numbered release. It hasn't been tried by many people yet.",
+      "downloadURL": "https://github.com/sithewok13-dev/doom3-ios/releases/download/ios-latest/DOOM3-iOS-unsigned.ipa",
+      "size": 10566056
+    }
+  ],
+  "news": []
+}
